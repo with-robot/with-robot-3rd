@@ -182,6 +182,7 @@ def place_target(context: Context, youbot_data: ReadData):
     # grip target
     elif context.mainpulator_state == 2:
         control_data.gripper_state = True
+    #### this section will be changed by path planning ####
     # move joint to place location
     elif context.mainpulator_state == 3:
         control_data.joints_position = config.loading_location.copy()
@@ -194,6 +195,7 @@ def place_target(context: Context, youbot_data: ReadData):
     # move joint to place location
     elif context.mainpulator_state == 5:
         control_data.joints_position = config.place_location.copy()
+    ########################################################
     # drop target
     elif context.mainpulator_state == 6:
         control_data.gripper_state = False
