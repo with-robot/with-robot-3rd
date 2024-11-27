@@ -28,7 +28,16 @@ class State(Enum):
 #
 @dataclass(frozen=True)
 class Config:
-    pass
+    # initial position of find target
+    find_target_init = [-np.pi / 2, -np.pi / 4, -np.pi / 3, -np.pi / 3, 0.0]
+    # delta theta to up of find target
+    find_target_delta_up = np.pi / 16
+    # robot loading location
+    loading_location = [np.pi, -np.pi / 6, -np.pi / 2.7, -np.pi / 3, 0]
+    # robot place location
+    place_location = [0, -np.pi * 0.4, -np.pi * 0.285, -np.pi * 0.245, 0.0]
+    # initial position of robot
+    base_location = [0 / 2, -np.pi / 4, -np.pi / 3, -np.pi / 3, 0.0]
 
 
 #
@@ -50,6 +59,9 @@ class Context:
     state: State = State.StandBy
     state_counter: int = 0
     base: np.array = None
+
+    mainpulator_state: int = 0
+    target_location: np.array = None
 
     def set_state(self, state):
         self.state = state
@@ -77,4 +89,8 @@ class ControlData:
     wheels_velocity: list = None
     wheels_position: list = None
     joints_position: list = None
-    delta: int = None
+    delta: int = 0.025
+    gripper_state: bool = None
+    lidar_call_back = None
+    camera_call_back = None
+    exec_count = 0

@@ -122,12 +122,45 @@ class PickAndPlace:
 
     # control youbot (return true if control is finished)
     def control_youbot(self, control_data):
-        if control_data.wheels_velocity:
+        control_data.exec_count += 1
+
+        if control_data.wheels_velocity is not None:
             return True
-        if control_data.wheels_position:
+        if control_data.wheels_position is not None:
             return True
-        if control_data.joints_position:
-            return True
+        if control_data.joints_position is not None:
+            is_lidar = control_data.lidar_call_back is not None
+            is_camera = control_data.camera_call_back is not None
+            read_data = self.read_youbot(lidar=is_lidar, camera=is_camera)
+
+            diff_sum = 0
+            for i, joint in enumerate(control_data.joints_position):
+                diff = abs(joint - read_data.joints[i])
+                diff_sum += diff
+                diff = min(diff, control_data.delta)
+                if read_data.joints[i] < joint:
+                    target = read_data.joints[i] + diff
+                else:
+                    target = read_data.joints[i] - diff
+                self.sim.setJointTargetPosition(self.joints[i], target)
+            if control_data.lidar_call_back:
+                return control_data.lidar_call_back(
+                    self.context, read_data, control_data
+                )
+            elif control_data.camera_call_back:
+                return control_data.camera_call_back(
+                    self.context, read_data, control_data
+                )
+            else:
+                return diff_sum < 0.005
+        if control_data.gripper_state is not None:
+            p1 = self.sim.getJointPosition(self.joints[-2])
+            p2 = self.sim.getJointPosition(self.joints[-1])
+            p1 += -0.005 if control_data.gripper_state else 0.005
+            p2 += 0.005 if control_data.gripper_state else -0.005
+            self.sim.setJointTargetPosition(self.joints[-2], p1)
+            self.sim.setJointTargetPosition(self.joints[-1], p2)
+            return control_data.exec_count > 5
         return True
 
     # run coppeliasim simulator
@@ -148,6 +181,7 @@ class PickAndPlace:
                     control_data = None
                 self.sim.step()
                 continue
+            print(self.context.state)
 
             self.context.inc_state_counter()
 
@@ -171,9 +205,7 @@ class PickAndPlace:
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_position
                     )
-                result, control_data = find_target(
-                    self.context, self.read_youbot(camera=True)
-                )
+                result, control_data = find_target(self.context, self.read_youbot())
                 if result:
                     self.context.set_state(State.ApproachToTarget)
             elif self.context.state == State.ApproachToTarget:
