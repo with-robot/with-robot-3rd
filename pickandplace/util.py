@@ -91,6 +91,7 @@ class ControlData:
     joints_position: list = None
     delta: int = 0.025
     gripper_state: bool = None
-    lidar_call_back = None
-    camera_call_back = None
     exec_count = 0
+    control_cb = None
+    read_lidar: bool = False
+    read_camera: bool = False

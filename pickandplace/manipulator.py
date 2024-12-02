@@ -30,7 +30,8 @@ def find_target(context: Context, youbot_data: ReadData):
         context.mainpulator_state = 0
         context.target_location = None
         control_data.joints_position = config.find_target_init.copy()
-        control_data.camera_call_back = find_target_cb
+        control_data.control_cb = find_target_cb
+        control_data.read_camera = True
     else:
         result = True if context.target_location is not None else False
 
@@ -103,6 +104,73 @@ def find_target_cb(context: Context, youbot_data: ReadData, control_data: Contro
                 return True
 
 
+# move car near to target location
+def approach_to_target(context: Context, youbot_data: ReadData):
+    result: bool = False
+    control_data: ControlData = ControlData()
+
+    if context.state_counter == 1:
+        control_data.control_cb = approach_to_target_cb
+        control_data.delta = 0.05
+        control_data.read_camera = True
+    else:
+        result = True
+
+    return result, control_data
+
+
+def approach_to_target_cb(
+    context: Context, youbot_data: ReadData, control_data: ControlData
+):
+    visualize(youbot_data.img)
+
+    # control arm joints
+    bboxs = detect_red_box(youbot_data.img)
+    if bboxs:
+        near_index = find_nearest_bbox(youbot_data.img, bboxs)
+        target_location = bboxs[near_index]
+
+        base_x = youbot_data.img.shape[1] // 2
+        base_y = youbot_data.img.shape[0] // 2
+        x, y, w, h = target_location
+        center_x = x + w // 2
+        center_y = y + h // 2
+        diff_x = center_x - base_x
+        diff_y = center_y - base_y
+
+        control_data.joints_position = youbot_data.joints[:5]
+        control_data.joints_position[0] -= diff_x / 1000
+        control_data.joints_position[1] -= diff_y / 1000
+
+        _, pc_hat = fk(youbot_data.joints[1:], [youbot_data.joints[0]])
+        xyz = R.from_quat(pc_hat[3:]).as_euler("xyz")
+        theta_z = np.pi + xyz[0]
+        theta_x = xyz[2]
+        dist = pc_hat[2] * np.tan(theta_z)
+        pt_hat = pc_hat[:3] + dist * np.array([-np.sin(theta_x), np.cos(theta_x), 0])
+        pt_hat[-1] = 0.02
+        context.target_location = pt_hat
+
+    # control wheel joints
+    angle = np.arctan2(context.target_location[0], context.target_location[1])
+    if abs(angle) > 0.003:  # rotate
+        control_data.wheels_position = [
+            youbot_data.wheels[0] - angle,
+            youbot_data.wheels[1] - angle,
+            youbot_data.wheels[2] + angle,
+            youbot_data.wheels[3] + angle,
+        ]
+    elif context.target_location[1] > 0.6:  # move forward
+        control_data.wheels_position = [
+            youbot_data.wheels[0] - 0.1,
+            youbot_data.wheels[1] - 0.1,
+            youbot_data.wheels[2] - 0.1,
+            youbot_data.wheels[3] - 0.1,
+        ]
+    else:
+        return True
+
+
 # pick target
 def pick_target(context: Context, youbot_data: ReadData):
     result: bool = False
@@ -127,7 +195,6 @@ def pick_target(context: Context, youbot_data: ReadData):
         pt_hat = context.target_location.copy()
         target_thetas = solve(youbot_data.joints, pt_hat)
         control_data.joints_position = target_thetas
-        print(target_thetas)
     #########################################################
     # grip target
     elif context.mainpulator_state == 3:

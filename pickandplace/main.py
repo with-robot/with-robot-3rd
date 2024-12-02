@@ -15,11 +15,10 @@ from util import State, Context, Mission, ReadData, ControlData
 from car import (
     get_location,
     move_to_pick,
-    approach_to_target,
     move_to_place,
     move_to_base,
 )
-from manipulator import find_target, pick_target, place_target
+from manipulator import find_target, approach_to_target, pick_target, place_target
 
 
 #
@@ -123,16 +122,26 @@ class PickAndPlace:
     # control youbot (return true if control is finished)
     def control_youbot(self, control_data):
         control_data.exec_count += 1
+        read_data = self.read_youbot(
+            lidar=control_data.read_lidar, camera=control_data.read_camera
+        )
 
+        result = True
         if control_data.wheels_velocity is not None:
-            return True
+            pass
         if control_data.wheels_position is not None:
-            return True
+            diff_sum = 0
+            for i, wheel in enumerate(control_data.wheels_position):
+                diff = abs(wheel - read_data.wheels[i])
+                diff_sum += diff
+                diff = min(diff, control_data.delta)
+                if read_data.wheels[i] < wheel:
+                    target = read_data.wheels[i] + diff
+                else:
+                    target = read_data.wheels[i] - diff
+                self.sim.setJointTargetPosition(self.wheels[i], target)
+            result = diff_sum < 0.005
         if control_data.joints_position is not None:
-            is_lidar = control_data.lidar_call_back is not None
-            is_camera = control_data.camera_call_back is not None
-            read_data = self.read_youbot(lidar=is_lidar, camera=is_camera)
-
             diff_sum = 0
             for i, joint in enumerate(control_data.joints_position):
                 diff = abs(joint - read_data.joints[i])
@@ -143,16 +152,7 @@ class PickAndPlace:
                 else:
                     target = read_data.joints[i] - diff
                 self.sim.setJointTargetPosition(self.joints[i], target)
-            if control_data.lidar_call_back:
-                return control_data.lidar_call_back(
-                    self.context, read_data, control_data
-                )
-            elif control_data.camera_call_back:
-                return control_data.camera_call_back(
-                    self.context, read_data, control_data
-                )
-            else:
-                return diff_sum < 0.005
+            result = diff_sum < 0.005
         if control_data.gripper_state is not None:
             p1 = self.sim.getJointPosition(self.joints[-2])
             p2 = self.sim.getJointPosition(self.joints[-1])
@@ -160,8 +160,10 @@ class PickAndPlace:
             p2 += 0.005 if control_data.gripper_state else -0.005
             self.sim.setJointTargetPosition(self.joints[-2], p1)
             self.sim.setJointTargetPosition(self.joints[-1], p2)
-            return control_data.exec_count > 5
-        return True
+            result = control_data.exec_count > 5
+        if control_data.control_cb:
+            result = control_data.control_cb(self.context, read_data, control_data)
+        return result
 
     # run coppeliasim simulator
     def run_coppelia(self):
