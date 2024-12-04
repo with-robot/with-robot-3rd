@@ -5,13 +5,14 @@
 
 import cv2
 import numpy as np
+import math
 
 from pynput import keyboard
 from pynput.keyboard import Listener
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 
-from util import State, Context, Mission, ReadData, ControlData
+from util import State, Context, Mission, ReadData, ControlData, ConfigObj
 from car import (
     get_location,
     move_to_pick,
@@ -29,6 +30,8 @@ class PickAndPlace:
     def __init__(self):
         # coppeliasim simulation instance
         self.sim = RemoteAPIClient().require("sim")
+        # coppeliasim OMPL
+        self.simOMPL = RemoteAPIClient().require("simOMPL")
         # Context of Robot
         self.context = Context()
         # Simulation run flag
@@ -46,14 +49,23 @@ class PickAndPlace:
 
     # init coppeliasim objects
     def init_coppelia(self):
+        configobj = ConfigObj()
+        # robot
+        self.youBot = self.sim.getObject("/youBot")
+        # register youBot with ConfigObj
+        configobj.youBot = self.youBot
         # reference
         self.youBot_ref = self.sim.getObject("/youBot_ref")
+        # register youBot_ref with ConfigObj
+        configobj.youBot_ref = self.youBot_ref
         # Wheel Joints: front left, rear left, rear right, front right
         self.wheels = []
         self.wheels.append(self.sim.getObject("/rollingJoint_fl"))
         self.wheels.append(self.sim.getObject("/rollingJoint_rl"))
         self.wheels.append(self.sim.getObject("/rollingJoint_fr"))
         self.wheels.append(self.sim.getObject("/rollingJoint_rr"))
+        # register wheel joints with ConfigObj
+        configobj.wheels = self.wheels
 
         # lidar
         self.lidars = []
@@ -76,6 +88,21 @@ class PickAndPlace:
         self.set_joint_ctrl_mode(self.wheels, self.sim.jointdynctrl_velocity)
         self.set_joint_ctrl_mode(self.joints, self.sim.jointdynctrl_position)
 
+        # destinations for path planning
+        self.predefined_points = {
+            "bedroom1": "/bedroom1",
+            "bedroom2": "/bedroom2",
+            "toilet": "/toilet",
+            "entrance": "/entrance",
+            "dining": "/dining",
+            "livingroom": "/livingroom",
+            "balcony_init": "/balcony_init",
+            "balcony_end": "/balcony_end",
+        }
+        # register destinations with ConfigObj
+        for key, value in self.predefined_points.items():
+            configobj.predefined_points[key] = value
+
     # set joints dynamic control mode
     def set_joint_ctrl_mode(self, objects, ctrl_mode):
         for obj in objects:
@@ -91,7 +118,10 @@ class PickAndPlace:
         # read localization of youbot
         p = self.sim.getObjectPosition(self.youBot_ref)
         o = self.sim.getObjectQuaternion(self.youBot_ref)
-        read_data.localization = np.array(p + o)
+        read_data.localization = np.array(p + o)  # [x,y,z,qw,qx,qy,qz]
+        # read H matrix of youbot
+        m = self.sim.getObjectMatrix(self.youBot_ref, -1)
+        read_data.robot_mat = np.array(m)
         # read wheel joints
         wheels = []
         for wheel in self.wheels:
@@ -122,13 +152,51 @@ class PickAndPlace:
 
     # control youbot (return true if control is finished)
     def control_youbot(self, control_data):
-        if control_data.wheels_velocity:
-            return True
-        if control_data.wheels_position:
-            return True
-        if control_data.joints_position:
-            return True
-        return True
+        control_data.exec_count += 1
+        read_data = self.read_youbot(
+            lidar=control_data.read_lidar, camera=control_data.read_camera
+        )
+
+        result = True
+        # 주행 초기 forwback_vel, side_vel, rot_vel 설정
+        if control_data.wheels_velocity is not None:
+            control_data.wheels_velocity = [0.0, 0.0, 0.0]
+            pass
+        if control_data.wheels_position is not None:
+            diff_sum = 0
+            for i, wheel in enumerate(control_data.wheels_position):
+                diff = abs(wheel - read_data.wheels[i])
+                diff_sum += diff
+                diff = min(diff, control_data.delta)
+                if read_data.wheels[i] < wheel:
+                    target = read_data.wheels[i] + diff
+                else:
+                    target = read_data.wheels[i] - diff
+                self.sim.setJointTargetPosition(self.wheels[i], target)
+            result = diff_sum < 0.005
+        if control_data.joints_position is not None:
+            diff_sum = 0
+            for i, joint in enumerate(control_data.joints_position):
+                diff = abs(joint - read_data.joints[i])
+                diff_sum += diff
+                diff = min(diff, control_data.delta)
+                if read_data.joints[i] < joint:
+                    target = read_data.joints[i] + diff
+                else:
+                    target = read_data.joints[i] - diff
+                self.sim.setJointTargetPosition(self.joints[i], target)
+            result = diff_sum < 0.005
+        if control_data.gripper_state is not None:
+            p1 = self.sim.getJointPosition(self.joints[-2])
+            p2 = self.sim.getJointPosition(self.joints[-1])
+            p1 += -0.005 if control_data.gripper_state else 0.005
+            p2 += 0.005 if control_data.gripper_state else -0.005
+            self.sim.setJointTargetPosition(self.joints[-2], p1)
+            self.sim.setJointTargetPosition(self.joints[-1], p2)
+            result = control_data.exec_count > 5
+        if control_data.control_cb:
+            result = control_data.control_cb(self.context, read_data, control_data)
+        return result
 
     # run coppeliasim simulator
     def run_coppelia(self):
