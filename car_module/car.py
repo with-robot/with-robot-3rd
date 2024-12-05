@@ -24,7 +24,37 @@ predefined_points = configobj.predefined_points
 
 # get current location of robot
 def get_location(context: Context, youbot_data: ReadData):
-    location = None
+    # youbot 의 현재 위치
+    location = youbot_data.localization
+    pick_location = str(input("Input the pick location : "))
+    place_location = str(input("Input the place location : "))
+    pick_location_id: int = None
+    place_location_id: int = None
+    try:
+        # Ensure pick and place locations are different
+        if pick_location_id == place_location_id:
+            raise ValueError("Pick and place locations must be different.")
+        # Get IDs for pick and place locations
+        if pick_location in predefined_points:
+            pick_location_id = predefined_points[pick_location]
+        else:
+            raise ValueError(f"Invalid pick location: {pick_location}")
+        if place_location in predefined_points:
+            place_location_id = predefined_points[place_location]
+        else:
+            raise ValueError(f"Invalid place location: {place_location}")
+
+        # base location (position info.)
+        context.base_goal_location = location
+        # pick_location (dummy id)
+        context.pick_location_id = pick_location_id
+        # place location (dummy id)
+        context.place_location_id = place_location_id
+
+    except ValueError as e:
+        print(e)
+
+    # location : 현재 위치
     return location
 
 
@@ -33,8 +63,9 @@ def move_to_pick(context: Context, youbot_data: ReadData):
     result: bool = True
     control_data: ControlData = ControlData()
     # main 에서 context.pick_goal_location 에 configobj.predefined_points 의 어느 장소를 입력해야하는 내용 추가해야함.
-    if context.pick_goal_location is not None:
-        control_data.control_cb = move_cb(goal=context.pick_goal_location)
+    if context.pick_location_id is not None:
+        dummyPos = sim.getObjectPosition(context.pick_location_id)
+        control_data.control_cb = move_cb(goal=dummyPos)
 
     return result, control_data
 
@@ -52,8 +83,9 @@ def move_to_place(context: Context, youbot_data: ReadData):
     result: bool = True
     control_data: ControlData = ControlData()
     # main 에서 context.place_goal_location 에 configobj.predefined_points 의 어느 장소를 입력해야하는 내용 추가해야함.
-    if context.place_goal_location is not None:
-        control_data.control_cb = move_cb(goal=context.pick_goal_location)
+    if context.place_location_id is not None:
+        dummyPos = sim.getObjectPosition(context.place_location_id)
+        control_data.control_cb = move_cb(goal=dummyPos)
 
     return result, control_data
 
@@ -64,7 +96,7 @@ def move_to_base(context: Context, youbot_data: ReadData):
     control_data: ControlData = ControlData()
     # main 에서 context.base_goal_location 에 configobj.predefined_points 의 어느 장소를 입력해야하는 내용 추가해야함.
     if context.base_goal_location is not None:
-        control_data.control_cb = move_cb(goal=context.pick_goal_location)
+        control_data.control_cb = move_cb(goal=context.base_goal_location)
 
     return result, control_data
 

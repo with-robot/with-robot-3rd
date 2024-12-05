@@ -89,19 +89,19 @@ class PickAndPlace:
         self.set_joint_ctrl_mode(self.joints, self.sim.jointdynctrl_position)
 
         # destinations for path planning
-        self.predefined_points = {
-            "bedroom1": "/bedroom1",
-            "bedroom2": "/bedroom2",
-            "toilet": "/toilet",
-            "entrance": "/entrance",
-            "dining": "/dining",
-            "livingroom": "/livingroom",
-            "balcony_init": "/balcony_init",
-            "balcony_end": "/balcony_end",
-        }
+        self.predefined_points = [
+            "/bedroom1",
+            "/bedroom2",
+            "/toilet",
+            "/entrance",
+            "/dining",
+            "/livingroom",
+            "/balcony_init",
+            "/balcony_end",
+        ]
         # register destinations with ConfigObj
-        for key, value in self.predefined_points.items():
-            configobj.predefined_points[key] = value
+        for loc in self.predefined_points:
+            configobj.predefined_points[loc] = int(self.sim.getObject(loc))
 
     # set joints dynamic control mode
     def set_joint_ctrl_mode(self, objects, ctrl_mode):
@@ -151,7 +151,7 @@ class PickAndPlace:
         return read_data
 
     # control youbot (return true if control is finished)
-    def control_youbot(self, control_data):
+    def control_youbot(self, control_data: ControlData):
         control_data.exec_count += 1
         read_data = self.read_youbot(
             lidar=control_data.read_lidar, camera=control_data.read_camera
