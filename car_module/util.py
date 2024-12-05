@@ -62,20 +62,7 @@ class ConfigObj:
     youBot_ref: int = None
     youBot_collision_box: int = None
     wheels: list = None
-    predefined_points: dict = None
-    """
-    ABOUT predefined_points, 
-    predefined_points = {
-        "bedroom1": "/bedroom1",
-        "bedroom2": "/bedroom2",
-        "toilet": "/toilet",
-        "entrance": "/entrance",
-        "dining": "/dining",
-        "livingroom": "/livingroom",
-        "balcony_init": "/balcony_init",
-        "balcony_end": "/balcony_end",
-    }
-    """
+    predefined_points = {}
 
 
 #
@@ -100,10 +87,10 @@ class Context:
 
     mainpulator_state: int = 0
     target_location: np.array = None
-    # location to perform the "pick"
-    pick_goal_location: np.array = None
-    # location to perform the "place"
-    place_goal_location: np.array = None
+    # location id to perform the "pick"
+    pick_location_id: int = None
+    # location id to perform the "place"
+    place_location_id: int = None
     # base location where the robot resides
     base_goal_location: np.array = None
 
