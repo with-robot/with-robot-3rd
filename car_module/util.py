@@ -62,7 +62,7 @@ class ConfigObj:
     youBot_ref: int = None
     youBot_collision_box: int = None
     wheels: list = None
-    predefined_points = {}
+    predefined_points = []
 
 
 #

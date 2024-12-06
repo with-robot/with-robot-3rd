@@ -9,6 +9,7 @@ import math
 
 from pynput import keyboard
 from pynput.keyboard import Listener
+import os
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 
@@ -58,6 +59,10 @@ class PickAndPlace:
         self.youBot_ref = self.sim.getObject("/youBot_ref")
         # register youBot_ref with ConfigObj
         configobj.youBot_ref = self.youBot_ref
+        # collision box
+        self.collVolumeHandle = self.sim.getObject("/youBot_coll")
+        # register youBot_coll with ConfigObj
+        configobj.youBot_collision_box = self.collVolumeHandle
         # Wheel Joints: front left, rear left, rear right, front right
         self.wheels = []
         self.wheels.append(self.sim.getObject("/rollingJoint_fl"))
@@ -100,8 +105,10 @@ class PickAndPlace:
             "/balcony_end",
         ]
         # register destinations with ConfigObj
-        for loc in self.predefined_points:
-            configobj.predefined_points[loc] = int(self.sim.getObject(loc))
+        for id in self.predefined_points:
+            loc_id = self.sim.getObject(id)
+            configobj.predefined_points.append(loc_id)
+        print(configobj.predefined_points)
 
     # set joints dynamic control mode
     def set_joint_ctrl_mode(self, objects, ctrl_mode):
@@ -201,7 +208,7 @@ class PickAndPlace:
     # run coppeliasim simulator
     def run_coppelia(self):
         # Registering a Keyboard Listener
-        Listener(on_press=self.on_press).start()
+        # Listener(on_press=self.on_press).start()
         # Start Simulation
         self.sim.setStepping(True)
         self.sim.startSimulation()
@@ -220,21 +227,25 @@ class PickAndPlace:
             self.context.inc_state_counter()
 
             if self.context.state == State.StandBy:
-                if self.context.mission != None:
+                if self.context.mission == None:
+                    print(1)
                     self.context.set_state(State.MoveToPick)
                     base = get_location(self.context, self.read_youbot(lidar=True))
                     self.context.base = base
             elif self.context.state == State.MoveToPick:
+                print(2)
                 if self.context.state_counter == 1:
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_velocity
                     )
                 result, control_data = move_to_pick(
-                    self.context, self.read_youbot(lidar=True)
+                    self.context,
+                    self.read_youbot(lidar=True),
                 )
                 if result:
                     self.context.set_state(State.FindTarget)
             elif self.context.state == State.FindTarget:
+                print(3)
                 if self.context.state_counter == 1:
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_position
