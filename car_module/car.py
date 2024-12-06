@@ -15,7 +15,8 @@ simOMPL = RemoteAPIClient().require("simOMPL")
 config: Config = Config()
 configobj: ConfigObj = ConfigObj()
 
-robotHandle = configobj.youBot
+# robotHandle = configobj.youBot
+robotHandle = sim.getObject("/youBot")
 refHandle = configobj.youBot_ref
 collVolumeHandle = configobj.youBot_collision_box
 wheels = configobj.wheels
@@ -24,37 +25,31 @@ predefined_points = configobj.predefined_points
 
 # get current location of robot
 def get_location(context: Context, youbot_data: ReadData):
+    result: bool = True
     # youbot 의 현재 위치
     location = youbot_data.localization
-    pick_location = str(input("Input the pick location : "))
-    place_location = str(input("Input the place location : "))
-    pick_location_id: int = None
-    place_location_id: int = None
+    pick_location_id = int(input("Input the pick location id : "))
+    place_location_id = int(input("Input the place location id : "))
+
     try:
-        # Ensure pick and place locations are different
-        if pick_location_id == place_location_id:
-            raise ValueError("Pick and place locations must be different.")
         # Get IDs for pick and place locations
-        if pick_location in predefined_points:
-            pick_location_id = predefined_points[pick_location]
+        if pick_location_id in predefined_points:
+            # pick_location (dummy id)
+            context.pick_location_id = pick_location_id
         else:
-            raise ValueError(f"Invalid pick location: {pick_location}")
-        if place_location in predefined_points:
-            place_location_id = predefined_points[place_location]
+            raise ValueError("Invalid pick location")
+        if place_location_id in predefined_points:
+            # place location (dummy id)
+            context.place_location_id = place_location_id
         else:
-            raise ValueError(f"Invalid place location: {place_location}")
+            raise ValueError("Invalid place location")
 
         # base location (position info.)
         context.base_goal_location = location
-        # pick_location (dummy id)
-        context.pick_location_id = pick_location_id
-        # place location (dummy id)
-        context.place_location_id = place_location_id
 
     except ValueError as e:
         print(e)
 
-    # location : 현재 위치
     return location
 
 
@@ -62,10 +57,12 @@ def get_location(context: Context, youbot_data: ReadData):
 def move_to_pick(context: Context, youbot_data: ReadData):
     result: bool = True
     control_data: ControlData = ControlData()
+
     # main 에서 context.pick_goal_location 에 configobj.predefined_points 의 어느 장소를 입력해야하는 내용 추가해야함.
     if context.pick_location_id is not None:
         dummyPos = sim.getObjectPosition(context.pick_location_id)
-        control_data.control_cb = move_cb(goal=dummyPos)
+        # move_cb 호출 시 모든 인수를 전달
+        control_data.control_cb = move_cb(context, youbot_data, control_data, dummyPos)
 
     return result, control_data
 
@@ -78,14 +75,16 @@ def approach_to_target(context: Context, youbot_data: ReadData):
     return result, control_data
 
 
-# move car to place room
+# move car to pick room
 def move_to_place(context: Context, youbot_data: ReadData):
     result: bool = True
     control_data: ControlData = ControlData()
-    # main 에서 context.place_goal_location 에 configobj.predefined_points 의 어느 장소를 입력해야하는 내용 추가해야함.
+
+    # main 에서 context.pick_goal_location 에 configobj.predefined_points 의 어느 장소를 입력해야하는 내용 추가해야함.
     if context.place_location_id is not None:
         dummyPos = sim.getObjectPosition(context.place_location_id)
-        control_data.control_cb = move_cb(goal=dummyPos)
+        # move_cb 호출 시 모든 인수를 전달
+        control_data.control_cb = move_cb(context, youbot_data, control_data, dummyPos)
 
     return result, control_data
 
