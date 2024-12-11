@@ -38,7 +38,10 @@ class Config:
     place_location = [0, -np.pi * 0.4, -np.pi * 0.285, -np.pi * 0.245, 0.0]
     # initial position of robot
     base_location = [0 / 2, -np.pi / 4, -np.pi / 3, -np.pi / 3, 0.0]
-
+    # target height before IBVS
+    target_height = 0.06
+    # pixel threshold for IBVS
+    ibvs_threshold = 90
 
 #
 # A class defining the mission for robot
@@ -62,6 +65,8 @@ class Context:
 
     mainpulator_state: int = 0
     target_location: np.array = None
+    tmp_target_theta: np.array = None
+    pixelPositions = []
 
     def set_state(self, state):
         self.state = state
@@ -76,10 +81,12 @@ class Context:
 #
 class ReadData:
     localization: np.array = None
+    cam_localization : np.array = None
     wheels: list = None
     joints: list = None
     scans: list = None
     img: np.array = None
+
 
 
 #

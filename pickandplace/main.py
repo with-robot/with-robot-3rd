@@ -5,12 +5,13 @@
 
 import cv2
 import numpy as np
+import math
 
 from pynput import keyboard
 from pynput.keyboard import Listener
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
-
+from scipy.spatial.transform import Rotation as R
 from util import State, Context, Mission, ReadData, ControlData
 from car import (
     get_location,
@@ -32,6 +33,7 @@ class PickAndPlace:
         self.context = Context()
         # Simulation run flag
         self.run_flag = True
+        self.f_len = self.getGlobalFocalLength()
 
     # key event listener
     def on_press(self, key):
@@ -47,6 +49,7 @@ class PickAndPlace:
     def init_coppelia(self):
         # reference
         self.youBot_ref = self.sim.getObject("/youBot_ref")
+        self.p0_ref = self.sim.getObject("/p0_ref")
         # Wheel Joints: front left, rear left, rear right, front right
         self.wheels = []
         self.wheels.append(self.sim.getObject("/rollingJoint_fl"))
@@ -91,6 +94,10 @@ class PickAndPlace:
         p = self.sim.getObjectPosition(self.youBot_ref)
         o = self.sim.getObjectQuaternion(self.youBot_ref)
         read_data.localization = np.array(p + o)
+        # read localization of youbot
+        cp = self.sim.getObjectPosition(self.camera_1)
+        co = self.sim.getObjectOrientation(self.camera_1)
+        read_data.cam_localization = np.array(cp + co)
         # read wheel joints
         wheels = []
         for wheel in self.wheels:
@@ -165,6 +172,18 @@ class PickAndPlace:
             result = control_data.control_cb(self.context, read_data, control_data)
         return result
 
+    def getGlobalFocalLength(self):
+        camera_1 = self.sim.getObject(f"/camera_1")
+        res, perspAngle = self.sim.getObjectFloatParameter(camera_1, self.sim.visionfloatparam_perspective_angle)
+        res, resolution = self.sim.getVisionSensorResolution(camera_1)
+        # distance per pixel
+        planeWidth = 2 * math.tan(perspAngle / 2)
+        distancePerPixel = planeWidth / resolution
+        # global focal length
+        # pixelFocalLength = (resolution / 2) / math.tan(perspAngle / 2)
+        # globalFocalLength = pixelFocalLength * distancePerPixel
+        return 1/distancePerPixel
+
     # run coppeliasim simulator
     def run_coppelia(self):
         # Registering a Keyboard Listener
@@ -183,10 +202,8 @@ class PickAndPlace:
                     control_data = None
                 self.sim.step()
                 continue
-            print(self.context.state)
 
             self.context.inc_state_counter()
-
             if self.context.state == State.StandBy:
                 if self.context.mission != None:
                     self.context.set_state(State.MoveToPick)
@@ -217,8 +234,12 @@ class PickAndPlace:
                 if result:
                     self.context.set_state(State.PickTarget)
             elif self.context.state == State.PickTarget:
+                read_data = self.read_youbot(camera=True)
+                # dummy_handle = self.sim.createDummy(0.01)
+                # self.sim.setObjectPosition(dummy_handle, -1, list(read_data.cam_localization[:3]))
+                # self.sim.setObjectAlias(dummy_handle, f"Sample")
                 result, control_data = pick_target(
-                    self.context, self.read_youbot(camera=True)
+                    self.context, read_data, self.f_len
                 )
                 if result:
                     self.context.set_state(State.MoveToPlace)
