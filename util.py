@@ -49,21 +49,8 @@ class Config:
     }
     drive_stop_parms = [0.0, 0.0, 0.0, 0.0]
     # parameters for path planning
-    search_range = 10
-    search_duration = 0.1
-    prev_dist = 0.0
-
-
-#
-# A class for registering object IDs present in the simulator (for use in car.py)
-#
-@dataclass
-class ConfigObj:
-    youBot: int = None
-    youBot_ref: int = None
-    youBot_collision_box: int = None
-    wheels: list = None
-    predefined_points = []
+    search_range: int = 10
+    search_duration: float = 0.1
 
 
 #
@@ -99,6 +86,8 @@ class Context:
 
     line_container = None  # handle of the drawing object
 
+    prev_dist: float = 0.0
+
     def set_state(self, state):
         self.state = state
         self.state_counter = 0
@@ -113,7 +102,7 @@ class Context:
 class ReadData:
     localization: np.array = None
     robot_mat: np.array = None
-    wheels: list = None
+    wheels: list = None  # angular positions of the wheels
     joints: list = None
     scans: list = None
     img: np.array = None
@@ -124,7 +113,7 @@ class ReadData:
 #
 class ControlData:
     wheels_velocity: list = None
-    wheels_velocity_el: list = None  # 3 elements to calc wheels_velocity
+    wheels_velocity_el: list = [0.0, 0.0, 0.0]
     wheels_position: list = None
     joints_position: list = None
     delta: int = 0.025
