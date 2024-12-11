@@ -35,7 +35,7 @@ class PickAndPlace:
         # Pressing 'a' key will start the mission.
         if key == keyboard.KeyCode.from_char("a"):
             # set the pick & place locations
-            self.context.mission = Mission("/bedroom1", "/bedroom2", "Cube")
+            self.context.mission = Mission("/bedroom2", "/toilet", "Cube")
             if self.context.mission.pick_location in self.predefined_points:
                 self.context.pick_location_id = self.goal_locations[
                     self.context.mission.pick_location
@@ -292,9 +292,9 @@ class PickAndPlace:
                 self.wheels[2], -forwback_vel + side_vel + rot_vel
             )
             self.sim.setJointTargetVelocity(
-                self.wheels[0], -forwback_vel - side_vel + rot_vel
+                self.wheels[3], -forwback_vel - side_vel + rot_vel
             )
-            print("set_checker")
+            print(f"Wheel 0 Velocity: {-forwback_vel - side_vel - rot_vel}")
 
             if (
                 np.linalg.norm(

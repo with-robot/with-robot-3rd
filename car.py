@@ -15,12 +15,13 @@ def get_location(context: Context, youbot_data: ReadData):
 # move car to pick location
 def move_to_pick(context: Context, youbot_data: ReadData):
     result: bool = False
-    control_data: ControlData = ControlData
+    control_data: ControlData = ControlData()
 
     if context.state_counter == 1:
         # pick location is already defined. (Context.pick_location_id)
         control_data.control_cb = move_cb
         control_data.read_lidar = True
+        control_data.wheels_velocity_el = [0.0, 0.0, 0.0]  # init
     else:
         result = True
 
