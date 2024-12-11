@@ -1,21 +1,15 @@
-from util import Context, Config, ConfigObj, ReadData, ControlData
+from util import Context, Config, ReadData, ControlData
 import time
 import math
 import numpy as np
 
 
 config: Config = Config()
-configobj: ConfigObj = ConfigObj()
 
 
 # get current location of robot
 def get_location(context: Context, youbot_data: ReadData):
-    if context.state_counter == 1:
-        if youbot_data.localization is not None:
-            location = youbot_data.localization
-        else:
-            location = None
-    return location
+    return youbot_data.localization
 
 
 # move car to pick location
