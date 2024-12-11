@@ -36,6 +36,14 @@ class PickAndPlace:
         if key == keyboard.KeyCode.from_char("a"):
             # set the pick & place locations
             self.context.mission = Mission("/bedroom1", "/bedroom2", "Cube")
+            if self.context.mission.pick_location in self.predefined_points:
+                self.context.pick_location_id = self.goal_locations[
+                    self.context.mission.pick_location
+                ]
+            elif self.context.mission.place_location in self.predefined_points:
+                self.context.place_location_id = self.goal_locations[
+                    self.context.mission.place_location
+                ]
 
         # Pressing 'q' key will terminate the simulation
         if key == keyboard.KeyCode.from_char("q"):
@@ -139,20 +147,25 @@ class PickAndPlace:
         return read_data
 
     def find_path(self, youbot_data: ReadData, config: Config, goal_id):
-        # if config is None:
-        #     config = Config()
-        print(f"Goal ID: {goal_id}, Localization: {youbot_data.localization}")
-        goalPos = self.sim.getObjectPosition(goal_id)
-        obstaclesCollection = self.sim.createCollection(0)
-        self.sim.addItemToCollection(obstaclesCollection, self.sim.handle_all, -1, 0)
-        self.sim.addItemToCollection(
-            obstaclesCollection, self.sim.handle_tree, self.youBot, 1
-        )
-        collPairs = [self.collVolumeHandle, obstaclesCollection]
+        """Path planning implementation with retries until a path is found."""
+        control_data = ControlData()
 
-        search_algo = self.simOMPL.Algorithm.BiTRRT
-        try:
-            # use the path planning state for try-except archi.
+        while True:  # Retry until path planning succeeds
+            print(f"Attempting path planning to Goal ID: {goal_id}")
+            self.goal_id = goal_id
+            self.goalPos = self.sim.getObjectPosition(self.goal_id)
+            obstaclesCollection = self.sim.createCollection(0)
+            self.sim.addItemToCollection(
+                obstaclesCollection, self.sim.handle_all, -1, 0
+            )
+            self.sim.addItemToCollection(
+                obstaclesCollection, self.sim.handle_tree, self.youBot, 1
+            )
+            collPairs = [self.collVolumeHandle, obstaclesCollection]
+
+            search_algo = self.simOMPL.Algorithm.BiTRRT
+
+            # Use the path planning state for try-except architecture.
             if self.context.path_planning_state:
                 task = self.simOMPL.createTask("t")
                 self.simOMPL.setAlgorithm(task, search_algo)
@@ -176,7 +189,7 @@ class PickAndPlace:
                 self.simOMPL.setStateSpace(task, ss)
                 self.simOMPL.setCollisionPairs(task, collPairs)
                 self.simOMPL.setStartState(task, startPos[:2])
-                self.simOMPL.setGoalState(task, goalPos[:2])
+                self.simOMPL.setGoalState(task, self.goalPos[:2])
                 self.simOMPL.setStateValidityCheckingResolution(task, 0.01)
                 self.simOMPL.setup(task)
 
@@ -184,20 +197,15 @@ class PickAndPlace:
                     self.simOMPL.simplifyPath(task, 0.1)
                     path = self.simOMPL.getPath(task)
                     print(f"Path found: {path}")
+                    path_3d = []
+                    for i in range(0, len(path) // 2):
+                        path_3d.extend([path[2 * i], path[2 * i + 1], 0.0])
+                    self.path_data = path_3d
+                    break  # Exit loop when path planning succeeds
+
                 else:
-                    print("Path palnning failed")
-
-        except ValueError as e:
-            print(e)
-
-        if path:
-            path_3d = []
-            for i in range(0, len(path) // 2):
-                path_3d.append([path[2 * i], path[2 * i + 1], 0.0])
-            return path_3d
-        else:
-            print("Path is None or invalid.")  # Debugging log
-            return None
+                    print("Path planning failed. Retrying...")
+                    self.simOMPL.destroyTask(task)  # Cleanup and retry
 
     def control_youbot(self, config: Config, control_data: ControlData):
         control_data.exec_count += 1
@@ -206,33 +214,16 @@ class PickAndPlace:
             lidar=control_data.read_lidar, camera=control_data.read_camera
         )
         result = True
-        # path planning @ velocity control mode
-        if self.context.state == State.MoveToPick:
-            self.context.pick_location_id = self.sim.getObject(
-                self.context.mission.pick_location
-            )
-            path_3d = self.find_path(
-                read_data, config, goal_id=self.context.pick_location_id
-            )
-            goalPos = self.context.pick_location_id
-        elif self.context.state == State.MoveToPlace:
-            self.context.place_location_id = self.sim.getObject(
-                self.context.mission.place_location
-            )
-            path_3d = self.find_path(
-                read_data, config, goal_id=self.context.place_location_id
-            )
-            goalPos = self.context.place_location_id
-        # elif self.context.state == State.MoveToBase:
-        #     path_3d = self.find_path()
 
+        path_3d = self.path_data
         if control_data.wheels_velocity is not None:
             currPos = read_data.localization[:3]
             if path_3d and isinstance(path_3d, list):
                 pathLengths, totalDist = self.sim.getPathLengths(path_3d, 3)
+                print("checker")
             else:
-                print("Debug: path_3d is invalid or None.")
-                raise ValueError("Invalid path_3d format or empty path.")
+                print("2. Debug: path_3d is invalid or None.")
+                raise ValueError("2. Invalid path_3d format or empty path.")
             closet_dist = self.sim.getClosestPosOnPath(path_3d, pathLengths, currPos)
 
             if closet_dist <= self.context.prev_dist:
@@ -243,7 +234,7 @@ class PickAndPlace:
             targetPoint = self.sim.getPathInterpolatedConfig(
                 path_3d, pathLengths, closet_dist
             )
-            self.sim.addDrawingObjectItem(self.context.line_container, targetPoint)
+            # self.sim.addDrawingObjectItem(self.context.line_container, targetPoint)
 
             # calc. the velocity for each of the 4 mecanum wheels
             m = read_data.robot_mat
@@ -303,16 +294,17 @@ class PickAndPlace:
             self.sim.setJointTargetVelocity(
                 self.wheels[0], -forwback_vel - side_vel + rot_vel
             )
+            print("set_checker")
 
             if (
                 np.linalg.norm(
-                    np.array(self.sim.getObjectPosition(goalPos, -1))
+                    np.array(self.sim.getObjectPosition(self.goal_id, -1))
                     - np.array(self.sim.getObjectPosition(self.youBot_ref, -1))
                 )
                 < 0.6
             ):
 
-                self.sim.removeDrawingObject(self.context.line_container)
+                # self.sim.removeDrawingObject(self.context.line_container)
                 result = True
 
         if control_data.wheels_position is not None:
@@ -366,6 +358,7 @@ class PickAndPlace:
         while self.run_flag:
             if control_data:  # if control data exists complete control
                 print("00")
+                print(self.context.path_planning_state)
                 if self.control_youbot(config, control_data):
                     print("control_cb")
                     control_data = None
@@ -386,6 +379,9 @@ class PickAndPlace:
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_velocity
                     )
+                self.find_path(
+                    self.read_youbot(), config, goal_id=self.context.pick_location_id
+                )
                 result, control_data = move_to_pick(
                     self.context, self.read_youbot(lidar=True)
                 )
@@ -422,6 +418,9 @@ class PickAndPlace:
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_velocity
                     )
+                self.find_path(
+                    self.read_youbot(), config, goal_id=self.context.place_location_id
+                )
                 result, control_data = move_to_place(
                     self.context, self.read_youbot(lidar=True)
                 )

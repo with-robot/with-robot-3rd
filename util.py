@@ -123,4 +123,4 @@ class ControlData:
     read_lidar: bool = False
     read_camera: bool = False
 
-    path_flag: bool = False
+    path_3d: list = None
