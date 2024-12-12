@@ -88,6 +88,8 @@ class Context:
 
     prev_dist: float = 0.0
 
+    goal_location: list = None
+
     def set_state(self, state):
         self.state = state
         self.state_counter = 0

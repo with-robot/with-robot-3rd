@@ -22,6 +22,7 @@ def move_to_pick(context: Context, youbot_data: ReadData):
         control_data.control_cb = move_cb
         control_data.read_lidar = True
         control_data.wheels_velocity_el = [0.0, 0.0, 0.0]  # init
+        print("move_to_pick")
     else:
         result = True
 
@@ -64,9 +65,24 @@ def move_cb(context: Context, youbot_data: ReadData, control_data: ControlData):
     side_vel = control_data.wheels_velocity_el[1]
     rot_vel = control_data.wheels_velocity_el[2]
 
-    control_data.wheels_velocity = [
-        -forwback_vel - side_vel - rot_vel,
-        -forwback_vel + side_vel - rot_vel,
-        -forwback_vel + side_vel + rot_vel,
-        -forwback_vel - side_vel + rot_vel,
-    ]
+    if context.path_planning_state:
+        control_data.wheels_velocity = [
+            -forwback_vel - side_vel - rot_vel,
+            -forwback_vel + side_vel - rot_vel,
+            -forwback_vel + side_vel + rot_vel,
+            -forwback_vel - side_vel + rot_vel,
+        ]
+        # if close enough to target, stop path planning
+        distance = np.linalg.norm(
+            np.array(context.goal_location) - np.array(youbot_data.localization[:3])
+        )
+        print(distance)
+        if distance < 0.5:
+            print(f"Goal reached.")
+            context.path_planning_state = False
+            return True
+    else:
+        print("Path planning already completed.")
+        return True
+
+    return False
