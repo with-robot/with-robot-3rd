@@ -354,9 +354,7 @@ class PickAndPlace:
             self.sim.setJointTargetPosition(self.joints[-1], p2)
             result = control_data.exec_count > 5
         if control_data.control_cb is not None:
-            # print("callback function execution")
             result = control_data.control_cb(self.context, read_data, control_data)
-            # print(f"Control callback result: {result}")
         else:
             print("No control callback assigned.")
             result = True
