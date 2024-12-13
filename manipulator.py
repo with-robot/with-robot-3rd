@@ -15,7 +15,6 @@ from util import State, Config, Context, ReadData, ControlData
 
 # pi / 2
 PI_HALF = np.pi / 2
-
 config: Config = Config()
 visual_objects = [None] * 128
 
