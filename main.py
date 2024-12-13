@@ -484,7 +484,7 @@ class PickAndPlace:
                 if result:
                     self.context.set_state(State.StandBy)
                     self.context.mission = None  # clear mission
-                    self.run_flag = False
+                    self.run_flag = False  # try 1 loop
 
             # Run Simulation Step
             self.sim.step()

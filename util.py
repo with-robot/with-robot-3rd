@@ -84,11 +84,11 @@ class Context:
     # location id to perform the "place"
     place_location_id: int = None
 
-    line_container = None  # handle of the drawing object
+    line_container = None  # handle of the drawing object (arbitary)
 
     prev_dist: float = 0.0
 
-    goal_location: list = None
+    goal_location: list = None  # position info. of goal location in path planning
 
     def set_state(self, state):
         self.state = state
@@ -115,7 +115,7 @@ class ReadData:
 #
 class ControlData:
     wheels_velocity: list = None
-    wheels_velocity_el: list = [0.0, 0.0, 0.0]
+    wheels_velocity_el: list = [0.0, 0.0, 0.0]  # forwback / side/ rot vel. factors
     wheels_position: list = None
     joints_position: list = None
     delta: int = 0.025
