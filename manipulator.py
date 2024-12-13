@@ -30,8 +30,6 @@ def find_target(context: Context, youbot_data: ReadData):
         context.mainpulator_state = 0
         context.target_location = None
         control_data.joints_position = config.find_target_init.copy()
-        # 아래의 파일처럼 콜백함수 선언만 해주고 인자를 넣지 않음.
-        # manipulator.py 안에서 콜백 함수가 실행되는 것이 아니라 main.py 에서 실행.
         control_data.control_cb = find_target_cb
         control_data.read_camera = True
     else:
@@ -230,7 +228,7 @@ def pick_target(context: Context, youbot_data: ReadData):
             result = True
         else:  # re try
             context.mainpulator_state = 0
-
+    print(context.mainpulator_state)
     return result, control_data
 
 

@@ -38,6 +38,8 @@ def move_to_place(context: Context, youbot_data: ReadData):
         # pick location is already defined. (Context.place_location_id)
         control_data.control_cb = move_cb
         control_data.read_lidar = True
+        control_data.wheels_velocity_el = [0.0, 0.0, 0.0]  # init
+        print("move_to_place")
     else:
         result = True
 
@@ -53,6 +55,8 @@ def move_to_base(context: Context, youbot_data: ReadData):
         # pick location is already defined. (Context.base)
         control_data.control_cb = move_cb
         control_data.read_lidar = True
+        control_data.wheels_velocity_el = [0.0, 0.0, 0.0]  # init
+        print("move_to_base")
     else:
         result = True
 
@@ -65,6 +69,8 @@ def move_cb(context: Context, youbot_data: ReadData, control_data: ControlData):
     side_vel = control_data.wheels_velocity_el[1]
     rot_vel = control_data.wheels_velocity_el[2]
 
+    result = False
+
     if context.path_planning_state:
         control_data.wheels_velocity = [
             -forwback_vel - side_vel - rot_vel,
@@ -76,13 +82,13 @@ def move_cb(context: Context, youbot_data: ReadData, control_data: ControlData):
         distance = np.linalg.norm(
             np.array(context.goal_location) - np.array(youbot_data.localization[:3])
         )
-        print(distance)
+        # print(distance)
         if distance < 0.5:
             print(f"Goal reached.")
             context.path_planning_state = False
-            return True
+            result = True
     else:
         print("Path planning already completed.")
-        return True
+        result = True
 
-    return False
+    return result
