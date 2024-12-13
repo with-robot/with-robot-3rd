@@ -35,12 +35,12 @@ class PickAndPlace:
         # Pressing 'a' key will start the mission.
         if key == keyboard.KeyCode.from_char("a"):
             # set the pick & place locations
-            self.context.mission = Mission("/bedroom2", "/toilet", "Cube")
+            self.context.mission = Mission("/bedroom2", "/bedroom1", "Cube")
             if self.context.mission.pick_location in self.predefined_points:
                 self.context.pick_location_id = self.goal_locations[
                     self.context.mission.pick_location
                 ]
-            elif self.context.mission.place_location in self.predefined_points:
+            if self.context.mission.place_location in self.predefined_points:
                 self.context.place_location_id = self.goal_locations[
                     self.context.mission.place_location
                 ]
@@ -152,8 +152,12 @@ class PickAndPlace:
 
         while True:  # Retry until path planning succeeds
             print(f"Attempting path planning to Goal ID: {goal_id}")
-            self.goal_id = goal_id
-            self.context.goal_location = self.sim.getObjectPosition(self.goal_id)
+            if goal_id != None:
+                self.goal_id = goal_id
+                self.context.goal_location = self.sim.getObjectPosition(self.goal_id)
+            else:  # goal_location is base
+                self.goal_id = None
+                self.context.goal_location = self.context.base
             obstaclesCollection = self.sim.createCollection(0)
             self.sim.addItemToCollection(
                 obstaclesCollection, self.sim.handle_all, -1, 0
@@ -205,7 +209,7 @@ class PickAndPlace:
 
                 else:
                     print("Path planning failed. Retrying...")
-                    self.simOMPL.destroyTask(task)  # Cleanup and retry
+                    # self.simOMPL.destroyTask(task)  # Cleanup and retry
 
     def control_youbot(self, config: Config, control_data: ControlData):
         control_data.exec_count += 1
@@ -213,7 +217,7 @@ class PickAndPlace:
         read_data = self.read_youbot(
             lidar=control_data.read_lidar, camera=control_data.read_camera
         )
-        result = False
+        result = True
 
         path_3d = self.path_data
         if control_data.wheels_velocity is not None:
@@ -293,19 +297,30 @@ class PickAndPlace:
             self.sim.setJointTargetVelocity(
                 self.wheels[3], -forwback_vel - side_vel + rot_vel
             )
-
-            if (
-                np.linalg.norm(
-                    np.array(self.sim.getObjectPosition(self.goal_id, -1))
-                    - np.array(self.sim.getObjectPosition(self.youBot_ref, -1))
-                )
-                < 0.6
-            ):
-                # Path complete: Clear the path and switch to position control mode
-                # self.sim.removeDrawingObject(self.context.line_container)
-                self.context.path_planning_state = False
-                control_data.wheels_velocity = None
-                result = True
+            if self.goal_id != None:
+                if (
+                    np.linalg.norm(
+                        np.array(self.sim.getObjectPosition(self.goal_id, -1))
+                        - np.array(self.sim.getObjectPosition(self.youBot_ref, -1))
+                    )
+                    < 0.6
+                ):
+                    # Path complete: Clear the path and switch to position control mode
+                    # self.sim.removeDrawingObject(self.context.line_container)
+                    self.context.path_planning_state = False
+                    control_data.wheels_velocity = None
+                    result = True
+            else:
+                if (
+                    np.linalg.norm(
+                        np.array(self.context.base)
+                        - np.array(self.sim.getObjectPosition(self.youBot_ref, -1))
+                    )
+                    < 0.6
+                ):
+                    self.context.path_planning_state = False
+                    control_data.wheels_velocity = None
+                    result = True
 
         if control_data.wheels_position is not None:
             diff_sum = 0
@@ -339,15 +354,13 @@ class PickAndPlace:
             self.sim.setJointTargetPosition(self.joints[-2], p1)
             self.sim.setJointTargetPosition(self.joints[-1], p2)
             result = control_data.exec_count > 5
-            print("2")
         if control_data.control_cb:
-            print("callback")
+            # print("callback function execution")
             result = control_data.control_cb(self.context, read_data, control_data)
-            print(f"Control callback result: {result}")
+            # print(f"Control callback result: {result}")
         else:
             print("No control callback assigned.")
             result = True
-            print(result)
         return result
 
     # run coppeliasim simulator
@@ -373,13 +386,14 @@ class PickAndPlace:
 
             if self.context.state == State.StandBy:
                 if self.context.mission is not None:
-                    print("1")
+                    print(f"state: {self.context.state}")
                     self.context.set_state(State.MoveToPick)
                     base = get_location(self.context, self.read_youbot(lidar=True))
                     self.context.base = base[:3]  # [x,y,z]
+                    print(f"base : {self.context.base}")
             elif self.context.state == State.MoveToPick:
                 if self.context.state_counter == 1:
-                    print("2")
+                    print(f"state: {self.context.state}")
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_velocity
                     )
@@ -392,16 +406,13 @@ class PickAndPlace:
                 result, control_data = move_to_pick(
                     self.context, self.read_youbot(lidar=True)
                 )
-                print(f"state: {self.context.state}")
                 print(f"run_coppelia result : {result}")
                 if result:
                     self.path_data = None
                     self.context.set_state(State.FindTarget)
-                    print(f"state: {self.context.state}")
-                    print("here")
             elif self.context.state == State.FindTarget:
                 if self.context.state_counter == 1:
-                    print("3")
+                    print(f"state: {self.context.state}")
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_position
                     )
@@ -411,34 +422,43 @@ class PickAndPlace:
                 if result:
                     self.context.set_state(State.ApproachToTarget)
             elif self.context.state == State.ApproachToTarget:
-                print("4")
+                print(f"state: {self.context.state}")
                 result, control_data = approach_to_target(
                     self.context, self.read_youbot(lidar=True)
                 )
                 if result:
                     self.context.set_state(State.PickTarget)
             elif self.context.state == State.PickTarget:
-                print("5")
+                print(f"state: {self.context.state}")
                 result, control_data = pick_target(
                     self.context, self.read_youbot(camera=True)
                 )
+                print(f"state : {self.context.state}, result : {result}")
                 if result:
                     self.context.set_state(State.MoveToPlace)
+                    self.context.path_planning_state = True  # flag for path planning
             elif self.context.state == State.MoveToPlace:
                 if self.context.state_counter == 1:
+                    print(f"state: {self.context.state}")
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_velocity
                     )
-                self.find_path(
-                    self.read_youbot(), config, goal_id=self.context.place_location_id
-                )
+                if self.context.path_planning_state:
+                    self.find_path(
+                        self.read_youbot(),
+                        config,
+                        goal_id=self.context.place_location_id,
+                    )
                 result, control_data = move_to_place(
                     self.context, self.read_youbot(lidar=True)
                 )
+                print(f"run_coppelia result : {result}")
                 if result:
+                    self.path_data = None
                     self.context.set_state(State.PlaceTarget)
             elif self.context.state == State.PlaceTarget:
                 if self.context.state_counter == 1:
+                    print(f"state: {self.context.state}")
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_position
                     )
@@ -447,14 +467,20 @@ class PickAndPlace:
                 )
                 if result:
                     self.context.set_state(State.MoveToBase)
+                    self.context.path_planning_state = True  # flag for path planning
             elif self.context.state == State.MoveToBase:
                 if self.context.state_counter == 1:
+                    print(f"state: {self.context.state}")
                     self.set_joint_ctrl_mode(
                         self.wheels, self.sim.jointdynctrl_velocity
                     )
+                if self.context.path_planning_state:
+                    self.find_path(self.read_youbot(), config, goal_id=None)
                 result, control_data = move_to_base(
                     self.context, self.read_youbot(lidar=True)
                 )
+                print(result)
+                self.context.path_planning_state = False
                 if result:
                     self.context.set_state(State.StandBy)
                     self.context.mission = None  # clear mission
