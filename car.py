@@ -72,6 +72,7 @@ def move_cb(context: Context, youbot_data: ReadData, control_data: ControlData):
     result = False
 
     if context.path_planning_state:
+        # Update the ControlData.wheels_velocity
         control_data.wheels_velocity = [
             -forwback_vel - side_vel - rot_vel,
             -forwback_vel + side_vel - rot_vel,

@@ -228,7 +228,6 @@ def pick_target(context: Context, youbot_data: ReadData):
             result = True
         else:  # re try
             context.mainpulator_state = 0
-    print(context.mainpulator_state)
     return result, control_data
 
 
