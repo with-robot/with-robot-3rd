@@ -171,29 +171,37 @@ class PickAndPlace:
             if self.context.path_planning_state:
                 task = self.simOMPL.createTask("t")
                 self.simOMPL.setAlgorithm(task, search_algo)
+                # youbot_data.localization is np.array
                 startPos = youbot_data.localization[:3]  # [x,y,z,qw,qx,qy,qz]
-                ss = [
-                    self.simOMPL.createStateSpace(
-                        "2d",
-                        self.simOMPL.StateSpaceType.position2d,
-                        self.collVolumeHandle,
-                        [
-                            startPos[0] - 10,
-                            startPos[1] - 10,
-                        ],
-                        [
-                            startPos[0] + 10,
-                            startPos[1] + 10,
-                        ],
-                        1,
-                    )
-                ]
-                self.simOMPL.setStateSpace(task, ss)
-                self.simOMPL.setCollisionPairs(task, collPairs)
-                self.simOMPL.setStartState(task, startPos[:2])
-                self.simOMPL.setGoalState(task, self.context.goal_location[:2])
-                self.simOMPL.setStateValidityCheckingResolution(task, 0.01)
-                self.simOMPL.setup(task)
+                if isinstance(startPos, np.ndarray):
+                    startPos = startPos.tolist()
+                # try-except
+                try:
+                    ss = [
+                        self.simOMPL.createStateSpace(
+                            "2d",
+                            self.simOMPL.StateSpaceType.position2d,
+                            self.collVolumeHandle,
+                            [
+                                startPos[0] - 10,
+                                startPos[1] - 10,
+                            ],
+                            [
+                                startPos[0] + 10,
+                                startPos[1] + 10,
+                            ],
+                            1,
+                        )
+                    ]
+                    self.simOMPL.setStateSpace(task, ss)
+                    self.simOMPL.setCollisionPairs(task, collPairs)
+                    self.simOMPL.setStartState(task, startPos[:2])
+                    self.simOMPL.setGoalState(task, self.context.goal_location[:2])
+                    self.simOMPL.setStateValidityCheckingResolution(task, 0.01)
+                    self.simOMPL.setup(task)
+                except Exception as e:
+                    print(f"Error in setStartState: {e}")
+                    raise
 
                 if self.simOMPL.solve(task, 0.1):
                     self.simOMPL.simplifyPath(task, 0.1)
