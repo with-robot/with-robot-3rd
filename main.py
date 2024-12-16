@@ -196,7 +196,9 @@ class PickAndPlace:
                     self.simOMPL.setStateSpace(task, ss)
                     self.simOMPL.setCollisionPairs(task, collPairs)
                     self.simOMPL.setStartState(task, startPos[:2])
-                    self.simOMPL.setGoalState(task, self.context.goal_location[:2])
+                    self.simOMPL.setGoalState(
+                        task, self.context.goal_location[:2]
+                    )  # context.goal_location is 'python list'
                     self.simOMPL.setStateValidityCheckingResolution(task, 0.01)
                     self.simOMPL.setup(task)
                 except Exception as e:
@@ -228,24 +230,33 @@ class PickAndPlace:
         path_3d = self.path_data
         if control_data.wheels_velocity is not None:
             currPos = read_data.localization[:3]
+            # change numpy array to python list
+            if isinstance(currPos, np.ndarray):
+                currPos = currPos.tolist()
             if path_3d and isinstance(path_3d, list):
-                pathLengths, totalDist = self.sim.getPathLengths(path_3d, 3)
+                pathLengths, totalDist = self.sim.getPathLengths(
+                    path_3d, 3
+                )  # pathLengths: list
             else:
                 print("Debug: path_3d is invalid or None.")
                 raise ValueError("Invalid path_3d format or empty path.")
             closet_dist = self.sim.getClosestPosOnPath(path_3d, pathLengths, currPos)
-
+            # change numpy array to python list
+            if isinstance(closet_dist, np.ndarray):
+                closet_dist = closet_dist.tolist()
             if closet_dist <= self.context.prev_dist:
                 closet_dist += totalDist / 200
             self.context.prev_dist = closet_dist
 
             targetPoint = self.sim.getPathInterpolatedConfig(
                 path_3d, pathLengths, closet_dist
-            )
-            # self.sim.addDrawingObjectItem(self.context.line_container, targetPoint)
+            )  # targetPoint: list
 
             # Calc. the velocity for each of the 4 mecanum wheels
             m = read_data.robot_mat
+            # change the numpy array to python lsit
+            if isinstance(m, np.ndarray):
+                m = m.tolist()
             m_inv = self.sim.getMatrixInverse(m)
             rel_p = self.sim.multiplyVector(m_inv, targetPoint)
             rel_o = math.atan2(rel_p[1], rel_p[0]) - math.pi / 2
