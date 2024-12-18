@@ -120,7 +120,7 @@ class ControlData:
     joints_position: list = None
     delta: int = 0.025
     gripper_state: bool = None
-    exec_count = 0
+    exec_count: int = 0
     control_cb = None
     read_lidar: bool = False
     read_camera: bool = False

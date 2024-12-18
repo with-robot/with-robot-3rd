@@ -197,7 +197,7 @@ class PickAndPlace:
                     self.simOMPL.setCollisionPairs(task, collPairs)
                     self.simOMPL.setStartState(task, startPos[:2])
                     self.simOMPL.setGoalState(
-                        task, self.context.goal_location[:2]
+                        task, list(self.context.goal_location[:2])
                     )  # context.goal_location is 'python list'
                     self.simOMPL.setStateValidityCheckingResolution(task, 0.01)
                     self.simOMPL.setup(task)
@@ -371,12 +371,9 @@ class PickAndPlace:
             p2 += 0.005 if control_data.gripper_state else -0.005
             self.sim.setJointTargetPosition(self.joints[-2], p1)
             self.sim.setJointTargetPosition(self.joints[-1], p2)
-            result = control_data.exec_count > 5
+            result = control_data.exec_count > 10
         if control_data.control_cb is not None:
             result = control_data.control_cb(self.context, read_data, control_data)
-        else:
-            print("No control callback assigned.")
-            result = True
         return result
 
     # run coppeliasim simulator

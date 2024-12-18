@@ -23,6 +23,7 @@ visual_objects = [None] * 128
 def find_target(context: Context, youbot_data: ReadData):
     result: bool = False
     control_data: ControlData = ControlData()
+    control_data.exec_count = 0
 
     # move joint to init position
     if context.state_counter == 1:
@@ -107,6 +108,7 @@ def find_target_cb(context: Context, youbot_data: ReadData, control_data: Contro
 def approach_to_target(context: Context, youbot_data: ReadData):
     result: bool = False
     control_data: ControlData = ControlData()
+    control_data.exec_count = 0
 
     if context.state_counter == 1:
         control_data.control_cb = approach_to_target_cb
@@ -159,7 +161,7 @@ def approach_to_target_cb(
             youbot_data.wheels[2] + angle,
             youbot_data.wheels[3] + angle,
         ]
-    elif context.target_location[1] > 0.6:  # move forward
+    elif context.target_location[1] > 0.55:  # move forward
         control_data.wheels_position = [
             youbot_data.wheels[0] - 0.1,
             youbot_data.wheels[1] - 0.1,
@@ -174,6 +176,7 @@ def approach_to_target_cb(
 def pick_target(context: Context, youbot_data: ReadData):
     result: bool = False
     control_data: ControlData = ControlData()
+    control_data.exec_count = 0
 
     if context.state_counter == 1:
         context.mainpulator_state = 0
@@ -234,6 +237,7 @@ def pick_target(context: Context, youbot_data: ReadData):
 def place_target(context: Context, youbot_data: ReadData):
     result: bool = False
     control_data: ControlData = ControlData()
+    control_data.exec_count = 0
 
     if context.state_counter == 1:
         context.mainpulator_state = 0
