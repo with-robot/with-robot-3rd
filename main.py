@@ -12,6 +12,8 @@ from pynput.keyboard import Listener
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 
+from scipy.spatial.transform import Rotation as R
+
 from util import State, Context, Mission, ReadData, ControlData, Config
 from car import get_location, move_to_pick, move_to_place, move_to_base
 from manipulator import find_target, pick_target, place_target, approach_to_target
@@ -29,6 +31,7 @@ class PickAndPlace:
         self.context = Context()
         # Simulation run flag
         self.run_flag = True
+        self.f_len = self.getGlobalFocalLength()
 
     # key even listener
     def on_press(self, key):
@@ -116,6 +119,10 @@ class PickAndPlace:
         p = self.sim.getObjectPosition(self.youBot_ref)
         o = self.sim.getObjectQuaternion(self.youBot_ref)
         read_data.localization = np.array(p + o)  # [x,y,z,qw,qx,qy,qz]
+        # read localization of canera
+        cp = self.sim.getObjectPosition(self.camera_1)
+        co = self.sim.getObjectOrientation(self.camera_1)
+        read_data.cam_localization = np.array(cp + co)
         # read H matrix of youbot
         m = self.sim.getObjectMatrix(self.youBot_ref, -1)
         read_data.robot_mat = m
@@ -237,71 +244,75 @@ class PickAndPlace:
                 pathLengths, totalDist = self.sim.getPathLengths(
                     path_3d, 3
                 )  # pathLengths: list
+
+                closet_dist = self.sim.getClosestPosOnPath(
+                    path_3d, pathLengths, currPos
+                )
+                # change numpy array to python list
+                if isinstance(closet_dist, np.ndarray):
+                    closet_dist = closet_dist.tolist()
+                if closet_dist <= self.context.prev_dist:
+                    closet_dist += totalDist / 200
+                self.context.prev_dist = closet_dist
+
+                targetPoint = self.sim.getPathInterpolatedConfig(
+                    path_3d, pathLengths, closet_dist
+                )  # targetPoint: list
+
+                # Calc. the velocity for each of the 4 mecanum wheels
+                m = read_data.robot_mat
+                # change the numpy array to python lsit
+                if isinstance(m, np.ndarray):
+                    m = m.tolist()
+                m_inv = self.sim.getMatrixInverse(m)
+                rel_p = self.sim.multiplyVector(m_inv, targetPoint)
+                rel_o = math.atan2(rel_p[1], rel_p[0]) - math.pi / 2
+
+                p_parm = config.drive_parms["p_parm"]
+                p_parm_rot = config.drive_parms["p_parm_rot"]
+                max_v = config.drive_parms["max_v"]
+                max_v_rot = config.drive_parms["max_v_rot"]
+                accel_f = config.drive_parms["accel_f"]
+
+                forwback_vel = rel_p[1] * p_parm
+                side_vel = rel_p[0] * p_parm
+
+                v = (forwback_vel**2 + side_vel**2) ** 0.5
+                if v > max_v:
+                    forwback_vel *= max_v / v
+                    side_vel *= max_v / v
+
+                rot_vel = -rel_o * p_parm_rot
+                if abs(rot_vel) > max_v_rot:
+                    rot_vel = max_v_rot * rot_vel / abs(rot_vel)
+
+                prev_forwback_vel = control_data.wheels_velocity_el[0]
+                prev_side_vel = control_data.wheels_velocity_el[1]
+                prev_rot_vel = control_data.wheels_velocity_el[2]
+
+                df = forwback_vel - prev_forwback_vel
+                ds = side_vel - prev_side_vel
+                dr = rot_vel - prev_rot_vel
+
+                if abs(df) > max_v * accel_f:
+                    df = max_v * accel_f * df / abs(df)
+                if abs(ds) > max_v * accel_f:
+                    ds = max_v * accel_f * ds / abs(ds)
+                if abs(dr) > max_v_rot * accel_f:
+                    dr = max_v_rot * accel_f * dr / abs(dr)
+
+                forwback_vel = prev_forwback_vel + df
+                side_vel = prev_side_vel + ds
+                rot_vel = prev_rot_vel + dr
+
+                # control_data 에 세가지 요소 저장
+                control_data.wheels_velocity_el[0] = forwback_vel
+                control_data.wheels_velocity_el[1] = side_vel
+                control_data.wheels_velocity_el[2] = rot_vel
             else:
-                print("Debug: path_3d is invalid or None.")
-                raise ValueError("Invalid path_3d format or empty path.")
-            closet_dist = self.sim.getClosestPosOnPath(path_3d, pathLengths, currPos)
-            # change numpy array to python list
-            if isinstance(closet_dist, np.ndarray):
-                closet_dist = closet_dist.tolist()
-            if closet_dist <= self.context.prev_dist:
-                closet_dist += totalDist / 200
-            self.context.prev_dist = closet_dist
-
-            targetPoint = self.sim.getPathInterpolatedConfig(
-                path_3d, pathLengths, closet_dist
-            )  # targetPoint: list
-
-            # Calc. the velocity for each of the 4 mecanum wheels
-            m = read_data.robot_mat
-            # change the numpy array to python lsit
-            if isinstance(m, np.ndarray):
-                m = m.tolist()
-            m_inv = self.sim.getMatrixInverse(m)
-            rel_p = self.sim.multiplyVector(m_inv, targetPoint)
-            rel_o = math.atan2(rel_p[1], rel_p[0]) - math.pi / 2
-
-            p_parm = config.drive_parms["p_parm"]
-            p_parm_rot = config.drive_parms["p_parm_rot"]
-            max_v = config.drive_parms["max_v"]
-            max_v_rot = config.drive_parms["max_v_rot"]
-            accel_f = config.drive_parms["accel_f"]
-
-            forwback_vel = rel_p[1] * p_parm
-            side_vel = rel_p[0] * p_parm
-
-            v = (forwback_vel**2 + side_vel**2) ** 0.5
-            if v > max_v:
-                forwback_vel *= max_v / v
-                side_vel *= max_v / v
-
-            rot_vel = -rel_o * p_parm_rot
-            if abs(rot_vel) > max_v_rot:
-                rot_vel = max_v_rot * rot_vel / abs(rot_vel)
-
-            prev_forwback_vel = control_data.wheels_velocity_el[0]
-            prev_side_vel = control_data.wheels_velocity_el[1]
-            prev_rot_vel = control_data.wheels_velocity_el[2]
-
-            df = forwback_vel - prev_forwback_vel
-            ds = side_vel - prev_side_vel
-            dr = rot_vel - prev_rot_vel
-
-            if abs(df) > max_v * accel_f:
-                df = max_v * accel_f * df / abs(df)
-            if abs(ds) > max_v * accel_f:
-                ds = max_v * accel_f * ds / abs(ds)
-            if abs(dr) > max_v_rot * accel_f:
-                dr = max_v_rot * accel_f * dr / abs(dr)
-
-            forwback_vel = prev_forwback_vel + df
-            side_vel = prev_side_vel + ds
-            rot_vel = prev_rot_vel + dr
-
-            # control_data 에 세가지 요소 저장
-            control_data.wheels_velocity_el[0] = forwback_vel
-            control_data.wheels_velocity_el[1] = side_vel
-            control_data.wheels_velocity_el[2] = rot_vel
+                forwback_vel = 0
+                side_vel = 0
+                rot_vel = 0
 
             self.sim.setJointTargetVelocity(
                 self.wheels[0], -forwback_vel - side_vel - rot_vel
@@ -328,7 +339,7 @@ class PickAndPlace:
                     self.context.path_planning_state = False
                     control_data.wheels_velocity = None
                     result = True
-            else:
+            elif self.context.base is not None:
                 if (
                     np.linalg.norm(
                         np.array(self.context.base)
@@ -339,6 +350,8 @@ class PickAndPlace:
                     self.context.path_planning_state = False
                     control_data.wheels_velocity = None
                     result = True
+            else:
+                return True
 
         if control_data.wheels_position is not None:
             diff_sum = 0
@@ -351,7 +364,7 @@ class PickAndPlace:
                 else:
                     target = read_data.wheels[i] - diff
                 self.sim.setJointTargetPosition(self.wheels[i], target)
-            result = diff_sum < 0.005
+            result = diff_sum < 0.02
         if control_data.joints_position is not None:
             diff_sum = 0
             for i, joint in enumerate(control_data.joints_position):
@@ -363,7 +376,7 @@ class PickAndPlace:
                 else:
                     target = read_data.joints[i] - diff
                 self.sim.setJointTargetPosition(self.joints[i], target)
-            result = diff_sum < 0.005
+            result = diff_sum < 0.02
         if control_data.gripper_state is not None:
             p1 = self.sim.getJointPosition(self.joints[-2])
             p2 = self.sim.getJointPosition(self.joints[-1])
@@ -375,6 +388,20 @@ class PickAndPlace:
         if control_data.control_cb is not None:
             result = control_data.control_cb(self.context, read_data, control_data)
         return result
+
+    def getGlobalFocalLength(self):
+        camera_1 = self.sim.getObject(f"/camera_1")
+        res, perspAngle = self.sim.getObjectFloatParameter(
+            camera_1, self.sim.visionfloatparam_perspective_angle
+        )
+        res, resolution = self.sim.getVisionSensorResolution(camera_1)
+        # distance per pixel
+        planeWidth = 2 * math.tan(perspAngle / 2)
+        distancePerPixel = planeWidth / resolution
+        # global focal length
+        # pixelFocalLength = (resolution / 2) / math.tan(perspAngle / 2)
+        # globalFocalLength = pixelFocalLength * distancePerPixel
+        return 1 / distancePerPixel
 
     # run coppeliasim simulator
     def run_coppelia(self):
@@ -443,7 +470,7 @@ class PickAndPlace:
             elif self.context.state == State.PickTarget:
                 print(f"state: {self.context.state}")
                 result, control_data = pick_target(
-                    self.context, self.read_youbot(camera=True)
+                    self.context, self.read_youbot(camera=True), self.f_len
                 )
                 # For debugging
                 print(f"state : {self.context.state}, result : {result}")

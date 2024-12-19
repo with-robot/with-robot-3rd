@@ -39,6 +39,11 @@ class Config:
     # initial position of robot
     base_location = [0 / 2, -np.pi / 4, -np.pi / 3, -np.pi / 3, 0.0]
 
+    # target height before IBVS
+    target_height = 0.06
+    # pixel threshold for IBVS
+    ibvs_threshold = 90
+
     # parameters for driving
     drive_parms = {
         "p_parm": 50,
@@ -76,6 +81,9 @@ class Context:
     mainpulator_state: int = 0
     target_location: np.array = None
 
+    tmp_target_theta: np.array = None
+    pixelPositions = []
+
     car_state: int = 0
     path_planning_state: bool = True
 
@@ -101,8 +109,10 @@ class Context:
 #
 # A class defining readable datas of robot
 #
+@dataclass
 class ReadData:
     localization: np.array = None
+    cam_localization: np.array = None
     robot_mat: np.array = None
     wheels: list = None  # angular positions of the wheels
     joints: list = None
@@ -113,9 +123,10 @@ class ReadData:
 #
 # A class defining control datas of robot
 #
+@dataclass
 class ControlData:
     wheels_velocity: list = None
-    wheels_velocity_el: list = [0.0, 0.0, 0.0]  # forwback / side/ rot vel. factors
+    wheels_velocity_el: list = None  # forwback / side/ rot vel. factors
     wheels_position: list = None
     joints_position: list = None
     delta: int = 0.025
