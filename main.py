@@ -18,6 +18,12 @@ from util import State, Context, Mission, ReadData, ControlData, Config
 from car import get_location, move_to_pick, move_to_place, move_to_base
 from manipulator import find_target, pick_target, place_target, approach_to_target
 
+from flask import Flask, request
+import threading
+
+client = None
+app = Flask(__name__)
+
 
 #
 # A class for the entire pick-and-place operation
@@ -38,20 +44,24 @@ class PickAndPlace:
         # Pressing 'a' key will start the mission.
         if key == keyboard.KeyCode.from_char("a"):
             # set the pick & place locations
-            self.context.mission = Mission("/bedroom2", "/bedroom1", "Cube")
-            if self.context.mission.pick_location in self.predefined_points:
-                # register pick & place locations
-                self.context.pick_location_id = self.goal_locations[
-                    self.context.mission.pick_location
-                ]
-            if self.context.mission.place_location in self.predefined_points:
-                self.context.place_location_id = self.goal_locations[
-                    self.context.mission.place_location
-                ]
+            self.init_mission("/bedroom2", "/bedroom1", "Cube")
 
         # Pressing 'q' key will terminate the simulation
         if key == keyboard.KeyCode.from_char("q"):
             self.run_flag = False
+
+    def init_mission(self, pick_location, place_location, target):
+        # set the pick & place locations
+        self.context.mission = Mission(pick_location, place_location, target)
+        if self.context.mission.pick_location in self.predefined_points:
+            # register pick & place locations
+            self.context.pick_location_id = self.goal_locations[
+                self.context.mission.pick_location
+            ]
+        if self.context.mission.place_location in self.predefined_points:
+            self.context.place_location_id = self.goal_locations[
+                self.context.mission.place_location
+            ]
 
     # init coppeliasim objects
     def init_coppelia(self):
@@ -406,7 +416,7 @@ class PickAndPlace:
     # run coppeliasim simulator
     def run_coppelia(self):
         # register a keyboard listener
-        Listener(on_press=self.on_press).start()
+        # Listener(on_press=self.on_press).start()
         # start simulation
         self.sim.setStepping(True)
         self.sim.startSimulation()
@@ -534,7 +544,33 @@ class PickAndPlace:
         self.sim.stopSimulation()
 
 
+@app.route("/stop")
+def stop():
+    client.run_flag = False
+    return
+
+
+@app.route("/mission", methods=["POST"])
+def mission():
+    params = request.get_json()
+    # set the pick & place locations
+    client.init_mission(
+        params["pick_location"], params["place_location"], params["target"]
+    )
+    return ""
+
+
 if __name__ == "__main__":
     client = PickAndPlace()
     client.init_coppelia()
+
+    # start flask web server
+    threading.Thread(
+        target=lambda: app.run(
+            host="0.0.0.0", port=5555, debug=False, use_reloader=False
+        ),
+        daemon=True,
+    ).start()
+
+    # run coppeliaq
     client.run_coppelia()
