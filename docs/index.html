@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Deformable Neural Radiance Fields creates free-viewpoint portraits (nerfies) from casually captured videos.">
+  <meta name="keywords" content="Nerfies, D-NeRF, NeRF">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PICABOT</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<!-- <nav class="navbar" role="navigation" aria-label="main navigation">
+  ... (Navigation content remains unchanged)
+</nav> -->
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">PICABOT <br>(PICk and place, Autonomous driving, Bot)</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://github.com/paul-hyun">ChungChun Hyun</a><sup>1,5</sup>,</span>
+            <span class="author-block">
+              <a href="https://github.com/jsh0551">SuHo Jang</a><sup>1</sup>,</span>
+            <!-- Additional authors can be uncommented and added here -->
+             <span class="author-block">
+              <a href="https://github.com/eogml88">Daehee Kim</a><sup>1,2</sup></span>
+             </span>
+             <span class="author-block">
+              <a href="https://github.com/donghoon11>">DongHoon Oh</a><sup>1,3</sup></span>
+              </span>
+              <span class="author-block">
+                <a>Jiwon Choi</a><sup>1</sup>,</span>
+              <span class="author-block">
+              <a href="https://mjkim001130.github.io/">Minjae Kim</a><sup>1,4</sup></span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>Modulab with-robot,</span>
+            <span class="author-block"><sup>2</sup>nextchip</span>
+            <span class="author-block"><sup>3</sup>Hanyang university</span>
+            <span class="author-block"><sup>4</sup>Yonsei University</span>
+            <span class="author-block"><sup>5</sup>with-RL</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=A05g7TsrauU"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Additional links can be uncommented and added here -->
+              <span class="link-block">
+                <a href="https://github.com/with-robot/with-robot-3rd"
+                class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="./static/images/PICABOT_teaser.mp4" type="video/mp4">
+      </video>
+      <h2 class="subtitle has-text-centered">
+        <br>
+        PICABOT : Pick and Place, Autonomous driving, Bot
+      </h2>
+</section>
+
+
+<!-- Existing carousel section remains commented out -->
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            This project focuses on advancing personal robotics by developing a robot capable of 
+            autonomous navigation and robotic arm control. 
+            Part of the Companion Robot Lab's Season 3, 
+            the goal is to integrate SLAM for map creation, autonomous driving for task execution, and robotic arm manipulation.
+            In a simulated home environment, the robot is tasked 
+            with moving from a starting point (Zone 1) to a target (Zone 2), 
+            autonomously navigating using SLAM, locating a cube with a camera, picking it up, 
+            and delivering it to the target. This project demonstrates the potential 
+            of personal robots to assist with daily tasks, utilizing technologies like SLAM and 
+            computer vision without complex frameworks like ROS. The results aim to lay the 
+            groundwork for robots that can seamlessly integrate into home environments.
+          </p>
+          <p></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paper video. -->
+  <div class="columns is-centered has-text-centered">
+    <div class="column is-three-fifths">
+      <h2 class="title is-3">Video</h2>
+      <div class="publication-video">
+        <iframe src="https://www.youtube.com/embed/E3F3agnZTdw?rel=0&amp;showinfo=0"
+                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        
+      </div>
+    </div>
+  </div>    
+  <p></p>
+  <!--/ Paper video. -->
+</div>
+
+    <!-- Operation Steps Overview -->
+    <div class="columns is-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Operation Steps</h2>
+        <div class="content">
+          <ol class="operation-steps">
+            <li>
+              <h4 class="title is-5">Stand By</h4>
+              <p>The robot waits for user commands in the format: (pickup location, drop-off location, target object).
+                 Upon receiving the command, the robot executes the following procedures.</p>
+            </li>
+            
+            <li>
+              <h4 class="title is-5">Move to Pick</h4>
+              <p>- Remembers its "original position" for later return<br>
+                 - Calculates path from current position to pickup location<br>
+                 - Moves to pickup location following the calculated path</p>
+            </li>
+
+            <li>
+              <h4 class="title is-5">Find Target</h4>
+              <p>- Scans surroundings using arm-mounted camera<br>
+                 - Adjusts camera position and angle when target is detected<br>
+                 - Centers target object in camera view</p>
+            </li>
+
+            <li>
+              <h4 class="title is-5">Approach Target</h4>
+              <p>- Controls wheels to approach the target<br>
+                 - Maintains target at camera center through continuous adjustment<br>
+                 - Positions robot at optimal distance for pickup</p>
+            </li>
+
+            <li>
+              <h4 class="title is-5">Pick Target</h4>
+              <p>- Uses Visual Servoing for precise arm control<br>
+                 - Grasps target object<br>
+                 - Loads target into storage compartment</p>
+            </li>
+
+            <li>
+              <h4 class="title is-5">Move to Place</h4>
+              <p>- Calculates path to drop-off location<br>
+                 - Navigates to destination following planned path</p>
+            </li>
+
+            <li>
+              <h4 class="title is-5">Place Target</h4>
+              <p>- Controls robotic arm to unload target<br>
+                 - Places object at designated location</p>
+            </li>
+
+            <li>
+              <h4 class="title is-5">Move to Base</h4>
+              <p>- Calculates return path to original position<br>
+                 - Returns to starting position<br>
+                 - Prepares for next command</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Technical Sections -->
+    <section class="section">
+      <div class="columns">
+        <div class="column is-10 is-offset-1">
+          <h2 class="title is-3">Technical Details</h2>
+          
+          <!-- Navigation System -->
+          <div class="content">
+            <h3 class="title is-4">Navigation System</h3>
+            
+            <div class="columns is-variable is-4">
+              <!-- Left Column: Path Planning -->
+              <div class="column is-5 mr-3">
+                <h4 class="title is-5">1. Path Planning (Using simOMPL)</h4>
+                <div class="mb-5">
+                  <figure class="image">
+                    <img src="./static/images/path_planning.gif" alt="Path Planning"/>
+                    <figcaption class="has-text-centered mt-2"><em>Path Planning Visualization</em></figcaption>
+                  </figure>
+                </div>
+                
+                <p>The <code>find_path</code> method leverages the <strong>simOMPL module</strong> in CoppeliaSim to plan the robot's path. The key steps are as follows:</p>
+                
+                <ol class="ml-4">
+                  <li>
+                    <strong>Goal Location Setup</strong>:
+                    <ul>
+                      <li>The method sets the robot's current position and goal location.</li>
+                      <li>The goal location is identified based on the mission or pre-configured coordinates.</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Path Exploration</strong>:
+                    <ul>
+                      <li>It uses the <strong>BiTRRT algorithm</strong> to explore and determine a feasible path in a 2D plane while avoiding obstacles.</li>
+                      <li>Obstacles and the robot's collision box are defined to ensure a valid path is generated.</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Path Simplification</strong>:
+                    <ul>
+                      <li>Once a path is found, it is simplified (<code>simplifyPath</code>) to create an optimal trajectory for the robot.</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Storing Path Data</strong>:
+                    <ul>
+                      <li>The planned path is stored as 3D coordinates (<code>path_3d</code>) for subsequent use during motion control and path tracking.</li>
+                    </ul>
+                  </li>
+                </ol>
+              </div>
+
+              <!-- Right Column: Path Tracking -->
+              <div class="column is-5 ml-3">
+                <h4 class="title is-5">2. Path Tracking (Including Pure Pursuit)</h4>
+                <div class="mb-5">
+                  <figure class="image">
+                    <img src="./static/images/path_tracking.gif" alt="Path Tracking"/>
+                    <figcaption class="has-text-centered mt-2"><em>Path Tracking with Pure Pursuit</em></figcaption>
+                  </figure>
+                </div>
+                
+                <h5 class="title is-6">a. Basic Path Tracking:</h5>
+                <ul>
+                  <li>The robot continuously compares its <strong>current position</strong> with the planned <strong>target point</strong> along the path.</li>
+                  <li>It calculates the nearest point on the path and guides the robot toward it.</li>
+                  <li>The robot minimizes its positional error as it moves along the path.</li>
+                </ul>
+
+                <h5 class="title is-6">b. Pure Pursuit Algorithm:</h5>
+                <p>The Pure Pursuit algorithm enhances path tracking by ensuring smooth and natural motion along curved paths:</p>
+                
+                <ol class="ml-4">
+                  <li>
+                    <strong>Lookahead Distance</strong>:
+                    <ul>
+                      <li>The algorithm identifies a <strong>Lookahead Point</strong> on the path, located at a specific distance ahead of the robot's current position.</li>
+                      <li>This distance can be dynamically adjusted based on the robot's speed (longer distance for higher speeds).</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Target Direction Calculation</strong>:
+                    <ul>
+                      <li>The direction vector between the robot's position and the Lookahead Point is computed.</li>
+                      <li>The angular difference between the robot's heading and the target direction determines the rotational velocity.</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Control Signal Generation</strong>:
+                    <ul>
+                      <li><strong>Linear velocity</strong> is determined based on the straight-line distance to the Lookahead Point.</li>
+                      <li><strong>Rotational velocity</strong> is calculated to align the robot toward the Lookahead Point.</li>
+                      <li>The Mecanum wheels' independent velocities are adjusted accordingly to ensure smooth motion.</li>
+                    </ul>
+                  </li>
+                </ol>
+
+                <h5 class="title is-6">c. Benefits of Pure Pursuit:</h5>
+                <ul>
+                  <li>Produces smoother and more natural curved trajectories compared to traditional nearest-point tracking.</li>
+                  <li>Reduces abrupt direction changes and oscillations during path following.</li>
+                  <li>Adaptive Lookahead Distance enables stable control across different speeds and environments.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <hr width="100%">
+
+          <!-- Robotic Arm Control -->
+          <div class="content">
+            <h3 class="title is-4">Robotic Arm Control</h3>
+            
+            <!-- Object Detection and Target Approach in two columns -->
+            <div class="columns is-variable is-4">
+              <!-- Left Column: Object Detection -->
+              <div class="column is-5 mr-3">
+                <h4 class="title is-5">Object Detection</h4>
+                <figure class="image">
+                  <img src="./static/images/object_detection.gif" alt="Object Detection"/>
+                  <figcaption class="mt-2">
+                    <p class="mt-4 has-text-left">
+                      - Uses arm-mounted camera for target detection<br>
+                      - Currently implements OpenCV-based red cube detection<br>
+                      - Future versions planned to include DNN-based object detection
+                    </p>
+                  </figcaption>
+                </figure>
+              </div>
+
+              <!-- Right Column: Target Approach -->
+              <div class="column is-5 ml-3">
+                <h4 class="title is-5">Target Approach</h4>
+                <figure class="image">
+                  <img src="./static/images/approach_target.gif" alt="Approach to Target"/>
+                  <figcaption class="mt-2">
+                    <p class="mt-4 has-text-left">
+                      - Calculates distance using camera position and angle<br>
+                      - Rotates to face target directly<br>
+                      - Maintains target centering during approach
+                    </p>
+                  </figcaption>
+                </figure>
+              </div>
+            </div>
+
+            <!-- Visual Servoing -->
+            <div class="columns is-variable is-4">
+              <!-- Left Column: Visual Servoing GIF -->
+              <div class="column is-5 mr-3">
+                <h4 class="title is-5">Visual Servoing</h4>
+                <figure class="image">
+                  <img src="./static/images/visual_servoing.gif" alt="Visual Servoing" style="width: 100%; "/>
+                  <figcaption class="has-text-centered mt-2">
+                    <em>Visual Servoing Process</em>
+                  </figcaption>
+                </figure>
+              </div>
+
+              <!-- Right Column: ArUco Detection -->
+              <div class="column is-5 ml-3">
+                <h4 class="title is-5">Image-Based Visual Servoing (IBVS)</h4>
+                <figure class="image">
+                  <img src="./static/images/ibvs2.png" alt="IBVS Equation" style="width: 100%;"/>
+                  <figcaption class="has-text-centered mt-2">
+                    <em>ArUco Marker Feature Point</em>
+                  </figcaption>
+                </figure>
+              </div>
+            </div>
+
+            <!-- Visual Servoing Theory -->
+            <div class="columns is-centered mt-4">
+              <div class="column is-10">
+                <div class="content box">
+                  <h5 class="title is-5">Image-Based Visual Servoing (IBVS)</h5>
+                  
+                  <p class="mt-4">The image Jacobian for a point feature is given by:</p>
+                  <div class="has-text-centered my-4">
+                    \[
+                    J_p(u,v,z) = \begin{pmatrix} 
+                      -f/z & 0 & u/z & uv/f & -(f+u^2/f) & v\\
+                      0 & -f/z & v/z & f+v^2/f & -uv/f & -u
+                    \end{pmatrix}
+                    \]
+                  </div>
+
+                  <p class="mt-4">The complete visual servoing control law:</p>
+                  <div class="has-text-centered my-4">
+                    \[
+                    \begin{pmatrix}
+                      v_x\\v_y\\v_z\\w_x\\w_y\\w_z
+                    \end{pmatrix}
+                    = 
+                    \begin{pmatrix}
+                      J_p(u_1,v_1,z)\\
+                      \vdots\\
+                      J_p(u_n,v_n,z)
+                    \end{pmatrix}^{-1}
+                    \begin{pmatrix}
+                      \dot{u}_1\\
+                      \dot{v}_1\\
+                      \vdots\\
+                      \dot{u}_n\\
+                      \dot{v}_n
+                    \end{pmatrix}
+                    \]
+                  </div>
+
+                  <p class="mt-4">Where:</p>
+                  <ul>
+                    <li>\((u,v)\): Image coordinates of feature points</li>
+                    <li>\(z\): Depth of the feature point</li>
+                    <li>\(f\): Focal length of the camera</li>
+                    <li>\((v_x, v_y, v_z)\): Linear velocity components</li>
+                    <li>\((w_x, w_y, w_z)\): Angular velocity components</li>
+                    <li>\((\dot{u}, \dot{v})\): Desired feature point velocities</li>
+                  </ul>
+                  <p class="mt-4">The image Jacobian is calculated by extracting image feature coordinates from ArUco markers 
+                    attached to an object. The camera's velocity and orientation can be computed by 
+                    multiplying the pseudo-inverse matrix, composed of pixel errors 
+                    (the difference between target pixel coordinates and current feature coordinates) 
+                    and the image Jacobian of the feature coordinates. 
+                    By repeating this process until the pixel error reaches a threshold value, 
+                    the system can be controlled to a position where the object can be stably grasped.</p>
+                </div>
+                <p></p>
+              </div>
+            </div>
+          </div>
+
+          <p></p>
+          <!-- YouBot Platform -->
+          <div class="content">
+            <h3 class="title is-3">YouBot Platform</h3>
+            <div class="columns is-centered">
+              <div class="column is-8">
+                <img src="./static/images/youbot.png" alt="YouBot Description"/>
+                <div class="content has-text-left mt-4">
+                  <p>The KUKA YouBot features:</p>
+                  <ul>
+                    <li>5-DOF robotic arm with linear gripper</li>
+                    <li>Omnidirectional base with four Mecanum wheels</li>
+                    <li>Simulated in CoppeliaSim environment</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+
+
+
+
+
+<!-- Existing Related Links and BibTeX sections remain commented out -->
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <!-- Footer icons can be uncommented and added here -->
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license"
+                                                href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+            Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+          <p>
+            This means you are free to borrow the <a
+              href="https://github.com/nerfies/nerfies.github.io">source code</a> of this website,
+            we just ask that you link back to this page in the footer.
+            Please remember to remove the analytics code included in the header of the website which
+            you do not want on your website.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
