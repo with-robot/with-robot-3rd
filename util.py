@@ -33,14 +33,14 @@ class Config:
     lidar_offset: float = 0.2751  # distance from youBot_ref to lidar
     lidar_pcd: int = 342 * 2  # Point Cloud Density
     place = {
-        "bedroom1": (40, 15),
-        "bedroom2": (75, 10),
-        "toilet": (85, 30),
-        "enterance": (80, 50),
-        "dining": (91, 80),
-        "lvingroom": (30, 85),
-        "belcony_init": (5, 65),
-        "belcony_end": (5, 20),
+        "/bedroom1": (40, 15),
+        "/bedroom2": (75, 10),
+        "/toilet": (85, 30),
+        "/enterance": (80, 50),
+        "/dining": (91, 80),
+        "/lvingroom": (30, 85),
+        "/balcony_init": (5, 65),
+        "/balcony_end": (5, 20),
     }
 
 
@@ -49,7 +49,9 @@ class Config:
 #
 @dataclass(frozen=True)
 class Mission:
-    pass
+    pick_location: str
+    place_location: str
+    target: str
 
 
 #
@@ -58,6 +60,26 @@ class Mission:
 @dataclass
 class Context:
     map: np.array = None
+    map_loc: np.array = None
+    mission: Mission = None
+    state: State = State.StandBy
+    state_count: int = 0
+
+    base: tuple = None
+    path: list = None
+    path_idx: int = None
+
+    mainpulator_state: int = 0
+    manipulator_control_target: tuple = None  # manipulator control target
+
+    target_index: int = -1
+
+    def set_state(self, state):
+        self.state = state
+        self.state_count = 0
+
+    def inc_state_counte(self):
+        self.state_count += 1
 
 
 #
@@ -73,10 +95,25 @@ class ReadData:
     img_flag: bool = False
     img: np.array = None
 
+    cam_localization: np.array = None
+
 
 #
 # A class defining control datas of robot
 #
 @dataclass
 class ControlData:
-    wheels_position: np.array = None
+    wheels_position: tuple = (
+        np.deg2rad(0),
+        np.deg2rad(0),
+        np.deg2rad(0),
+        np.deg2rad(0),
+    )
+    manipulator_position: tuple = (
+        np.deg2rad(0),
+        np.deg2rad(45),
+        np.deg2rad(-120),
+        np.deg2rad(-60),
+        np.deg2rad(0),
+    )
+    gripper: bool = False

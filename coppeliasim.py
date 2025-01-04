@@ -1,3 +1,8 @@
+# Copyright 2024 @With-Robot 3.5
+#
+# Licensed under the MIT License;
+#     https://opensource.org/license/mit
+
 import numpy as np
 import cv2
 
@@ -37,18 +42,14 @@ class Coppeliasim:
         self.lidar = self.sim.getObjectHandle("/fastHokuyo")
         self.lidar_1 = self.sim.getObjectHandle("/fastHokuyo_sensor1")
         self.lidar_2 = self.sim.getObjectHandle("/fastHokuyo_sensor1")
-        self.lidar_script = self.sim.getScript(
-            self.sim.scripttype_childscript, self.lidar
-        )
+        self.lidar_script = self.sim.getScript(self.sim.scripttype_childscript, self.lidar)
         # set joint control model
         self.set_joint_ctrl_mode(self.joints, self.sim.jointdynctrl_position)
 
     # set joints dynamic control mode
     def set_joint_ctrl_mode(self, objects, ctrl_mode):
         for obj in objects:
-            self.sim.setObjectInt32Param(
-                obj, self.sim.jointintparam_dynctrlmode, ctrl_mode
-            )
+            self.sim.setObjectInt32Param(obj, self.sim.jointintparam_dynctrlmode, ctrl_mode)
 
     # read youbot data
     def read_youbot(self):
@@ -57,9 +58,9 @@ class Coppeliasim:
         o = self.sim.getObjectQuaternion(self.youBot_ref)
         self.read_data.localization = np.array(p + o)  # [x,y,z,qw,qx,qy,qz]
 
-        p1 = self.sim.getObjectPosition(self.lidar_1)
-        p2 = self.sim.getObjectPosition(self.lidar_2)
-        self.read_data.scan_position = (np.array(p1[:2]), np.array(p2[:2]))
+        p = self.sim.getObjectPosition(self.camera_1)
+        o = self.sim.getObjectQuaternion(self.camera_1)
+        self.read_data.cam_localization = np.array(p + o)  # [x,y,z,qw,qx,qy,qz]
 
         # read manipulator joints
         joints = []
@@ -100,6 +101,23 @@ class Coppeliasim:
                 else:
                     target = self.read_data.joints[index] - diff
                 self.sim.setJointTargetPosition(self.joints[index], target)
+        if self.control_data.manipulator_position is not None:
+            for i, joint in enumerate(self.control_data.manipulator_position):
+                index = 4 + i
+                diff = abs(joint - self.read_data.joints[index])
+                diff = min(diff, np.pi / 2)
+                if self.read_data.joints[index] < joint:
+                    target = self.read_data.joints[index] + diff
+                else:
+                    target = self.read_data.joints[index] - diff
+                self.sim.setJointTargetPosition(self.joints[index], target)
+        if self.control_data.gripper is not None:
+            p1 = self.sim.getJointPosition(self.joints[-2])
+            p2 = self.sim.getJointPosition(self.joints[-1])
+            p1 -= 0.005 * (1 if self.control_data.gripper else -1)
+            p2 += 0.005 * (1 if self.control_data.gripper else -1)
+            self.sim.setJointTargetPosition(self.joints[-2], p1)
+            self.sim.setJointTargetPosition(self.joints[-1], p2)
 
     def run(self, callback):
         # start simulation

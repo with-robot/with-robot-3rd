@@ -1,3 +1,8 @@
+# Copyright 2024 @With-Robot 3.5
+#
+# Licensed under the MIT License;
+#     https://opensource.org/license/mit
+
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -175,8 +180,8 @@ class TestPlanning:
         # initial data
         map_mask = self.make_map_mask(self.context.map.copy())
         # start = (60, 50)
-        start = self.config.place["belcony_end"]
-        end = self.config.place["bedroom1"]
+        start = self.config.place["/belcony_end"]
+        end = self.config.place["/bedroom1"]
         # planning
         map_value = self.calc_map_value(map_mask, end)
         map_path = self.calc_map_path(map_value, start, end)

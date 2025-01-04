@@ -1,3 +1,8 @@
+# Copyright 2024 @With-Robot 3.5
+#
+# Licensed under the MIT License;
+#     https://opensource.org/license/mit
+
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
@@ -21,20 +26,14 @@ class TestMapping:
         # location of map grid
         self.grid_loc = np.zeros((self.config.map_size[0], self.config.map_size[1], 2))
         full = self.config.map_size[0] * 0.1
-        self.grid_loc[:, :, 0] = np.linspace(
-            -full / 2 + 0.05, full / 2 - 0.05, self.config.map_size[0]
-        ).reshape(1, -1)
+        self.grid_loc[:, :, 0] = np.linspace(-full / 2 + 0.05, full / 2 - 0.05, self.config.map_size[0]).reshape(1, -1)
         full = self.config.map_size[1] * 0.1
-        self.grid_loc[:, :, 1] = np.linspace(
-            -full / 2 + 0.05, full / 2 - 0.05, self.config.map_size[1]
-        ).reshape(-1, 1)
+        self.grid_loc[:, :, 1] = np.linspace(-full / 2 + 0.05, full / 2 - 0.05, self.config.map_size[1]).reshape(-1, 1)
         # control signal
         self.vel = 0.0
         self.rot = 0.0
         # visualize
-        self.MAP_R, self.MAP_P = np.meshgrid(
-            np.linspace(-5, 5, 101), np.linspace(-5, 5, 101)
-        )
+        self.MAP_R, self.MAP_P = np.meshgrid(np.linspace(-5, 5, 101), np.linspace(-5, 5, 101))
         self.plt_objs = [None] * 4096
 
         self.sim.read_data.scan_flg = True
@@ -79,18 +78,10 @@ class TestMapping:
         g_dists = np.linalg.norm(g_points, axis=-1)
         g_angles = np.stack(
             [
-                np.arctan2(
-                    g_points[:, :, 1] + 0.05, g_points[:, :, 0] + 0.05
-                ),  # up-right
-                np.arctan2(
-                    g_points[:, :, 1] - 0.05, g_points[:, :, 0] + 0.05
-                ),  # down-right
-                np.arctan2(
-                    g_points[:, :, 1] + 0.05, g_points[:, :, 0] - 0.05
-                ),  # up-left
-                np.arctan2(
-                    g_points[:, :, 1] - 0.05, g_points[:, :, 0] - 0.05
-                ),  # down-left
+                np.arctan2(g_points[:, :, 1] + 0.05, g_points[:, :, 0] + 0.05),  # up-right
+                np.arctan2(g_points[:, :, 1] - 0.05, g_points[:, :, 0] + 0.05),  # down-right
+                np.arctan2(g_points[:, :, 1] + 0.05, g_points[:, :, 0] - 0.05),  # up-left
+                np.arctan2(g_points[:, :, 1] - 0.05, g_points[:, :, 0] - 0.05),  # down-left
             ],
             axis=-1,
         )
@@ -135,12 +126,8 @@ class TestMapping:
                 self.plt_objs[i].remove()
                 self.plt_objs[i] = None
 
-            self.plt_objs[0] = plt.pcolor(
-                self.MAP_R, self.MAP_P, -self.context.map, cmap="gray"
-            )
-            (self.plt_objs[1],) = plt.plot(
-                c_x, c_y, color="green", marker="o", markersize=10
-            )
+            self.plt_objs[0] = plt.pcolor(self.MAP_R, self.MAP_P, -self.context.map, cmap="gray")
+            (self.plt_objs[1],) = plt.plot(c_x, c_y, color="green", marker="o", markersize=10)
             (self.plt_objs[2],) = plt.plot([c_x, l_x], [c_y, l_y], "-b")
 
             draw = np.concatenate(
