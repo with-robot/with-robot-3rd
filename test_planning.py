@@ -180,7 +180,7 @@ class TestPlanning:
         # initial data
         map_mask = self.make_map_mask(self.context.map.copy())
         # start = (60, 50)
-        start = self.config.place["/belcony_end"]
+        start = self.config.place["/balcony_end"]
         end = self.config.place["/bedroom1"]
         # planning
         map_value = self.calc_map_value(map_mask, end)

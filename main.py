@@ -4,7 +4,6 @@
 #     https://opensource.org/license/mit
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 
 from util import State, Config, Context, Mission, ReadData, ControlData
@@ -102,17 +101,17 @@ class MainClass:
             map_path = np.array(self.context.path)
             map[map_path[:, 0], map_path[:, 1]] = 0.5
         # car position
-        c_x, c_y, _ = read_data.localization[:3]
-        _, _, c_z = R.from_quat(read_data.localization[3:]).as_euler("xyz")
+        cp_x, cp_y, _ = read_data.localization[:3]
+        _, _, co_z = read_data.localization[3:]
         # lidar positionq
-        l_x = c_x + self.config.lidar_offset * np.cos(c_z)
-        l_y = c_y + self.config.lidar_offset * np.sin(c_z)
+        l_x = cp_x + self.config.lidar_offset * np.cos(co_z)
+        l_y = cp_y + self.config.lidar_offset * np.sin(co_z)
 
         # display image
         self.plt_objs[0] = plt.pcolor(self.MAP_R, self.MAP_P, map * -1, cmap="gray")
         # display car & lidar
-        (self.plt_objs[1],) = plt.plot(c_x, c_y, color="green", marker="o", markersize=10)
-        (self.plt_objs[2],) = plt.plot([c_x, l_x], [c_y, l_y], "-b")
+        (self.plt_objs[1],) = plt.plot(cp_x, cp_y, color="green", marker="o", markersize=10)
+        (self.plt_objs[2],) = plt.plot([cp_x, l_x], [cp_y, l_y], "-b")
         plt.pause(0.001)
 
     def run(self):

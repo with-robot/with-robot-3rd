@@ -55,11 +55,11 @@ class Coppeliasim:
     def read_youbot(self):
         # read localization of youbot
         p = self.sim.getObjectPosition(self.youBot_ref)
-        o = self.sim.getObjectQuaternion(self.youBot_ref)
+        o = self.sim.getObjectOrientation(self.youBot_ref)
         self.read_data.localization = np.array(p + o)  # [x,y,z,qw,qx,qy,qz]
 
         p = self.sim.getObjectPosition(self.camera_1)
-        o = self.sim.getObjectQuaternion(self.camera_1)
+        o = self.sim.getObjectOrientation(self.camera_1)
         self.read_data.cam_localization = np.array(p + o)  # [x,y,z,qw,qx,qy,qz]
 
         # read manipulator joints

@@ -4,7 +4,6 @@
 #     https://opensource.org/license/mit
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 
 from coppeliasim import Coppeliasim
@@ -63,7 +62,7 @@ class TestMapping:
         n_row, n_col = self.config.map_size
         # car position
         c_x, c_y, _ = read_data.localization[:3]
-        _, _, c_z = R.from_quat(read_data.localization[3:]).as_euler("xyz")
+        _, _, c_z = read_data.localization[3:]
         # lidar positionq
         l_x = c_x + self.config.lidar_offset * np.cos(c_z)
         l_y = c_y + self.config.lidar_offset * np.sin(c_z)

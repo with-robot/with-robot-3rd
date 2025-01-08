@@ -5,7 +5,6 @@
 
 from threading import Thread
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 from util import Config, Context, ReadData, ControlData
 
@@ -174,7 +173,7 @@ class CarClass:
         else:
             diff = self.map_loc[target] - read_data.localization[:2]
 
-            curr_z = R.from_quat(read_data.localization[3:]).as_euler("xyz")[2]
+            curr_z = read_data.localization[5]
             target_z = np.arctan2(diff[1], diff[0])
             angle = self._calc_angle_diff(target_z, curr_z)
             distance = np.linalg.norm(diff)
