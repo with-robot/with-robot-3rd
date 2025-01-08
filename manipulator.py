@@ -4,6 +4,7 @@
 #     https://opensource.org/license/mit
 
 import numpy as np
+from itertools import permutations
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import minimize
 import cv2
@@ -12,6 +13,16 @@ from util import Config, Context, ReadData, ControlData
 
 
 PI_HALF = np.pi / 2
+CENTER = np.array([[127.5, 128.5]])
+TARGET = np.array(
+    [
+        [178.0, 78.0],
+        [78.0, 78.0],
+        [78.0, 178.0],
+        [178.0, 178.0],
+    ]
+)
+FOCAL_ALPHA = 223.0
 
 
 #
@@ -71,6 +82,8 @@ class ManipulatorClass:
     # Joint 제어
     #
     def _control_joint(self, manipulator_control_target, read_data: ReadData, control_data: ControlData):
+        control_data.wheels_position = tuple(read_data.joints[:4])
+
         diff_sum = 0
         manipulator_position = []
         for i in range(len(manipulator_control_target)):
@@ -184,9 +197,9 @@ class ManipulatorClass:
                     read_data.joints[3] - diff,
                 )
             else:
-                _, pc_hat, _ = fk(read_data.joints[4:])
-                theta_x = np.pi - R.from_quat(pc_hat[3:]).as_euler("xyz")[0]
-                dist = pc_hat[2] * np.tan(theta_x)
+                _, cl_hat, _ = fk(read_data.joints[4:])
+                co_x = np.pi - cl_hat[3]
+                dist = cl_hat[2] * np.tan(co_x)
                 if dist > 0.16:
                     dist = np.clip(dist, -0.1, 0.1)
                     control_data.wheels_position = (
@@ -199,17 +212,39 @@ class ManipulatorClass:
                     return True
 
     #
-    # target 상단에 로봇팔이 위치하도록 ik 계산
+    # target 상단에 joint3이 위치하도록 ik 계산
+    #
+    def _calc_ik_j3_target(self, context: Context, read_data: ReadData, control_data: ControlData):
+        bbox = self._detect_red_box(read_data.img)
+        if not bbox:
+            return
+        _, cl_hat, _ = fk(read_data.joints[4:])
+        co_x = np.pi - cl_hat[3]
+        dist = cl_hat[2] * np.tan(co_x)
+        tl_hat = np.array([cl_hat[0] + dist - 0.025, cl_hat[1], 0.30, np.pi, 0, -np.pi])
+        result = solve_j3(read_data.joints[4:], tl_hat)
+
+        context.manipulator_control_target = (
+            result[0],
+            result[1],
+            result[2],
+            result[3],
+            result[4],
+        )
+        return True
+
+    #
+    # target ee가 위치하도록 ik 계산
     #
     def _calc_ik_ee_target(self, context: Context, read_data: ReadData, control_data: ControlData):
         bbox = self._detect_red_box(read_data.img)
         if not bbox:
             return
-        _, pc_hat, _ = fk(read_data.joints[4:])
-        theta_x = np.pi - R.from_quat(pc_hat[3:]).as_euler("xyz")[0]
-        dist = pc_hat[2] * np.tan(theta_x)
-        pt_hat = np.array([pc_hat[0] + dist - 0.025, pc_hat[1], 0.02])
-        result = solve_ee(read_data.joints[4:], pt_hat)
+        _, cl_hat, _ = fk(read_data.joints[4:])
+        co_x = np.pi - cl_hat[3]
+        dist = cl_hat[2] * np.tan(co_x)
+        tl_hat = np.array([cl_hat[0] + dist, cl_hat[1], 0.06, np.pi, 0, -np.pi])
+        result = solve_ee(read_data.joints[4:], tl_hat)
 
         context.manipulator_control_target = (
             result[0],
@@ -229,25 +264,57 @@ class ManipulatorClass:
             read_data.img_flag = True
 
             context.mainpulator_state = 1
-        elif context.mainpulator_state == 1:  # calc ik for target
-            if self._calc_ik_ee_target(context, read_data, control_data):
+        elif context.mainpulator_state == 1:  # align bbox center
+            bbox = self._detect_red_box(read_data.img)
+            if not bbox:
+                return
+            if self._control_bbox_center(bbox, read_data, control_data):
                 context.mainpulator_state += 1
-        elif context.mainpulator_state == 2:  # control joint for target
+        elif context.mainpulator_state == 2:  # calc ik for above target
+            if self._calc_ik_j3_target(context, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 3:  # control joint for above target
             if self._control_joint(context.manipulator_control_target, read_data, control_data):
                 context.manipulator_control_target = []
                 context.mainpulator_state += 1
-        elif 2 < context.mainpulator_state < 13:  # grip target
+        elif context.mainpulator_state == 4:  # align bbox center
+            bbox = self._detect_red_box(read_data.img)
+            if not bbox:
+                return
+            if self._control_bbox_center(bbox, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 5:  # visual servoing
+            if visual_servoing(context, read_data):
+                context.manipulator_control_target = []
+                context.mainpulator_state += 1
+            else:
+                self._control_joint(context.manipulator_control_target, read_data, control_data)
+        elif context.mainpulator_state == 6:  # align bbox center
+            bbox = self._detect_red_box(read_data.img)
+            if not bbox:
+                return
+            if self._control_bbox_center(bbox, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 7:  # calc ik for grip target
+            if self._calc_ik_ee_target(context, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 8:  # control joint for grip target
+            if self._control_joint(context.manipulator_control_target, read_data, control_data):
+                context.manipulator_control_target = []
+                context.mainpulator_state += 1
+        elif 8 < context.mainpulator_state < 18:  # grip target
             control_data.gripper = True
             context.mainpulator_state += 1
-        elif context.mainpulator_state == 13:  # load target on loading box
+        elif context.mainpulator_state == 18:  # load target on loading box
             manipulator_control_target = (
                 np.deg2rad(0),
                 np.deg2rad(45),
                 np.deg2rad(45),
-                np.deg2rad(55),
+                np.deg2rad(50),
                 np.deg2rad(0),
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
                 return True
 
     def place_target(self, context: Context, read_data: ReadData, control_data: ControlData):
@@ -386,10 +453,10 @@ def fk(thetas):
     )
     TC4 = TC3 @ T34
 
-    pe_hat = TC4 @ np.array([0.0, 0.0, 0.123, 1])
-    oe_hat = R.from_matrix(TC4[:-1, :-1]).as_quat()
+    ep_hat = TC4 @ np.array([0.0, 0.0, 0.123, 1])
+    eo_hat = R.from_matrix(TC4[:-1, :-1]).as_euler("xyz")
 
-    pc_hat = TC4 @ np.array([0.0, 0.0, 0.075, 1])
+    cp_hat = TC4 @ np.array([0.0, 0.0, 0.075, 1])
     TCC = TC4 @ np.array(
         [  # z축을 기준으로 90도 회전
             [np.cos(PI_HALF), -np.sin(PI_HALF), 0, 0],
@@ -398,31 +465,70 @@ def fk(thetas):
             [0, 0, 0, 1],
         ]
     )
-    oc_hat = R.from_matrix(TCC[:-1, :-1]).as_quat()
+    co_hat = R.from_matrix(TCC[:-1, :-1]).as_euler("xyz")
 
-    p3_hat = TC3 @ np.array([0.0, 0.0, 0.0, 1])
-    o3_hat = R.from_matrix(TC3[:-1, :-1]).as_quat()
+    j3p_hat = TC3 @ np.array([0.0, 0.0, 0.0, 1])
+    j3o_hat = R.from_matrix(TC3[:-1, :-1]).as_euler("xyz")
 
     return (
-        np.concatenate((pe_hat[:3], oe_hat)),
-        np.concatenate((pc_hat[:3], oc_hat)),
-        np.concatenate((p3_hat[:3], o3_hat)),
+        np.concatenate((ep_hat[:3], eo_hat)),
+        np.concatenate((cp_hat[:3], co_hat)),
+        np.concatenate((j3p_hat[:3], j3o_hat)),
     )
 
 
 #
 # ik
 #
-def ik_ee(thetas, pt):
-    pt_hat, _, _ = fk(thetas)
-    error = np.linalg.norm(pt[:3] - pt_hat[:3])
-    return error
+def ik_j3(thetas, j3l):
+    _, _, j3l_hat = fk(thetas)
+    p_error = np.linalg.norm(j3l[:3] - j3l_hat[:3])
+    return p_error
 
 
 #
 # solve
 #
-def solve_ee(thetas, pt):
+def solve_j3(thetas, j3l):
+    initial_thetas = np.array([thetas[0], thetas[1], thetas[2], thetas[3], thetas[4]])
+    theta_bounds = [
+        (np.deg2rad(-180), np.deg2rad(180)),
+        (np.deg2rad(-75), np.deg2rad(75)),
+        (np.deg2rad(-131), np.deg2rad(131)),
+        (np.deg2rad(-102), np.deg2rad(-15)),
+        (np.deg2rad(-90), np.deg2rad(90)),
+    ]
+
+    result = minimize(
+        ik_j3,  # 목적 함수
+        initial_thetas,  # 초기값
+        args=(j3l,),  # 추가 매개변수
+        bounds=theta_bounds,  # 범위 제한
+        method="L-BFGS-B",  # 제약 조건을 지원하는 최적화 알고리즘
+        options={"ftol": 1e-9},  # 수렴 기준
+    )
+    return (
+        result.x[0],
+        result.x[1],
+        result.x[2],
+        -np.pi - (result.x[1] + result.x[2]),
+        thetas[4],
+    )
+
+
+#
+# ik
+#
+def ik_ee(thetas, el):
+    _, cl_hat, _ = fk(thetas)
+    p_error = np.linalg.norm(el[:3] - cl_hat[:3])
+    return p_error
+
+
+#
+# solve
+#
+def solve_ee(thetas, el):
     initial_thetas = np.array([thetas[0], thetas[1], thetas[2], thetas[3], thetas[4]])
     theta_bounds = [
         (np.deg2rad(-180), np.deg2rad(180)),
@@ -435,9 +541,118 @@ def solve_ee(thetas, pt):
     result = minimize(
         ik_ee,  # 목적 함수
         initial_thetas,  # 초기값
-        args=(pt,),  # 추가 매개변수
+        args=(el,),  # 추가 매개변수
         bounds=theta_bounds,  # 범위 제한
         method="L-BFGS-B",  # 제약 조건을 지원하는 최적화 알고리즘
         options={"ftol": 1e-9},  # 수렴 기준
     )
-    return result.x
+    return (
+        result.x[0],
+        result.x[1],
+        result.x[2],
+        result.x[3],
+        result.x[4],
+    )
+
+
+#
+# imabe based visual servoing을 위한 feature detection
+#
+def detect_ibvs_features(image):
+    # BGR에서 HSV로 변환
+    image = image.copy()
+    # image = cv2.flip(image, 0)ㅂ
+    # image = cv2.flip(image, 1)
+    pixel_positions = []
+    # Aruco 사전 및 파라미터 설정
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    parameters = cv2.aruco.DetectorParameters()
+    # 이미지 읽기 (회전된 마커 포함)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Aruco 마커 감지
+    detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
+    corners, ids, _ = detector.detectMarkers(gray)
+    # 4. 탐지된 마커 처리
+    if ids is not None:
+        ids_array = ids.flatten()
+        # argsort()를 사용해 인덱스 얻기
+        sorted_indices = np.argsort(ids_array)
+        ids = ids[sorted_indices]
+        corners = [corners[i] for i in sorted_indices]
+        for corner in corners:
+            corner = np.squeeze(corner)
+            for feat in corner:
+                x, y = feat
+                pixel_positions.append([x, image.shape[1] - y])
+    return pixel_positions
+
+
+#
+# imabe based visual servoing을 위한 feature matching
+#
+def match_ibvs_pixels(pixel_positions, refer_positions):
+    min_norm, min_pixels = 1e9, None
+    for pixels in permutations(pixel_positions):
+        pixels = np.array(pixels)
+        norm = np.linalg.norm(pixels - refer_positions)
+        if norm < min_norm:
+            min_norm = norm
+            min_pixels = pixels
+    return min_pixels
+
+
+#
+# imabe based visual servoing을 위한 jacobian
+#
+def ibvs_jacobian(pixel, Z, focal_alpha):
+    x, y = pixel / focal_alpha
+    return np.array(
+        [
+            [-1 / Z, 0, x / Z, x * y, -(1 + x**2), y],
+            [0, -1 / Z, y / Z, 1 + y**2, -x * y, -x],
+        ]
+    )
+
+
+#
+# imabe based visual servoing
+#
+def visual_servoing(context: Context, read_data: ReadData):
+    pixel_positions = detect_ibvs_features(read_data.img[:, :, ::-1])
+    if len(pixel_positions) == len(TARGET):
+        pixel_positions = match_ibvs_pixels(pixel_positions, TARGET)
+        if True:
+            _, height, _ = read_data.img.shape
+            colors = [(128, 128, 0), (0, 255, 0), (0, 0, 255), (0, 128, 128)]
+            for i, p in enumerate(pixel_positions):
+                cv2.circle(read_data.img, (int(p[0]), height - int(p[1])), 2, colors[i], -1)
+            for i, p in enumerate(TARGET):
+                cv2.circle(read_data.img, (int(p[0]), height - int(p[1])), 2, colors[i], -1)
+
+        pixel_positions = pixel_positions - CENTER
+        refer_positions = TARGET - CENTER
+
+        _, cl_hat, _ = fk(read_data.joints[4:])
+        Z = cl_hat[2] - 0.05
+
+        lamda = 0.1
+        controls = []
+        for i in range(4):
+            s_pixel = pixel_positions[i]
+            s_refer = refer_positions[i]
+            L_pixel = ibvs_jacobian(pixel_positions[i], Z, FOCAL_ALPHA)
+            L_refer = ibvs_jacobian(refer_positions[i], Z, FOCAL_ALPHA)
+            L = np.linalg.pinv(0.5 * (L_pixel + L_refer))
+            control = -lamda * (L @ (s_pixel - s_refer))
+            controls.append(control)
+        control_sum = np.sum(controls, axis=0)
+
+        if abs(control_sum[5]) < 1e-4:
+            return True
+        context.manipulator_control_target = (
+            read_data.joints[4],
+            read_data.joints[5],
+            read_data.joints[6],
+            read_data.joints[7],
+            read_data.joints[8] - control_sum[5] * 25,  # joint 4 번만 제어
+        )
