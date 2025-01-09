@@ -112,10 +112,8 @@ class Coppeliasim:
                     target = self.read_data.joints[index] - diff
                 self.sim.setJointTargetPosition(self.joints[index], target)
         if self.control_data.gripper is not None:
-            p1 = self.sim.getJointPosition(self.joints[-2])
-            p2 = self.sim.getJointPosition(self.joints[-1])
-            p1 -= 0.005 * (1 if self.control_data.gripper else -1)
-            p2 += 0.005 * (1 if self.control_data.gripper else -1)
+            p1 = 0.008 if self.control_data.gripper else 0.025
+            p2 = -0.033 if self.control_data.gripper else -0.05
             self.sim.setJointTargetPosition(self.joints[-2], p1)
             self.sim.setJointTargetPosition(self.joints[-1], p2)
 

@@ -14,6 +14,7 @@ from util import Config, Context, ReadData, ControlData
 
 PI_HALF = np.pi / 2
 CENTER = np.array([[127.5, 128.5]])
+TARGET_Z = 0.08268
 TARGET = np.array(
     [
         [178.0, 78.0],
@@ -305,17 +306,55 @@ class ManipulatorClass:
         elif 8 < context.mainpulator_state < 18:  # grip target
             control_data.gripper = True
             context.mainpulator_state += 1
-        elif context.mainpulator_state == 18:  # load target on loading box
+        elif context.mainpulator_state == 18:  # pick up target
             manipulator_control_target = (
                 np.deg2rad(0),
                 np.deg2rad(45),
-                np.deg2rad(45),
-                np.deg2rad(50),
+                np.deg2rad(-90),
+                np.deg2rad(-60),
                 np.deg2rad(0),
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):
                 context.mainpulator_state += 1
+        elif context.mainpulator_state == 19:  # rotate onto the cargo
+            manipulator_control_target = (
+                np.deg2rad(-180),
+                np.deg2rad(45),
+                np.deg2rad(-90),
+                np.deg2rad(-60),
+                np.deg2rad(0),
+            )
+            if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 20:  # place target on the cargo
+            manipulator_control_target = (
+                np.deg2rad(-180),
+                np.deg2rad(-25),
+                np.deg2rad(-74),
+                np.deg2rad(-81),
+                np.deg2rad(0),
+            )
+            if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
+        elif 20 < context.mainpulator_state < 30:  # un grip target
+            control_data.gripper = False
+            context.mainpulator_state += 1
+        elif context.mainpulator_state == 30:  # check cargo state
+            manipulator_control_target = (
+                np.deg2rad(-180),
+                np.deg2rad(-15),
+                np.deg2rad(-75),
+                np.deg2rad(-82),
+                np.deg2rad(0),
+            )
+            if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 31:  # check cargo state
+            bbox = self._detect_red_box(read_data.img)
+            if bbox:
                 return True
+            else:
+                context.mainpulator_state = 1
 
     def place_target(self, context: Context, read_data: ReadData, control_data: ControlData):
         if context.state_count == 1:
@@ -323,30 +362,30 @@ class ManipulatorClass:
             read_data.img_flag = True
 
             context.mainpulator_state = 1
-        elif context.mainpulator_state == 1:
+        elif context.mainpulator_state == 1:  # pick target on the cargo
             manipulator_control_target = (
-                np.deg2rad(0),
-                np.deg2rad(-55),
-                np.deg2rad(-90),
+                np.deg2rad(-180),
                 np.deg2rad(-25),
+                np.deg2rad(-74),
+                np.deg2rad(-81),
                 np.deg2rad(0),
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):
                 context.mainpulator_state += 1
-        elif 1 < context.mainpulator_state < 12:
-            control_data.gripper = False
+        elif 1 < context.mainpulator_state < 11:  # grip target
+            control_data.gripper = True
             context.mainpulator_state += 1
-        elif context.mainpulator_state == 12:
+        elif context.mainpulator_state == 11:  # pick up target
             manipulator_control_target = (
-                np.deg2rad(0),
+                np.deg2rad(-180),
                 np.deg2rad(45),
                 np.deg2rad(-120),
-                np.deg2rad(-25),
+                np.deg2rad(-60),
                 np.deg2rad(0),
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):
                 context.mainpulator_state += 1
-        elif context.mainpulator_state == 13:
+        elif context.mainpulator_state == 12:  # rotate fo place
             manipulator_control_target = (
                 np.deg2rad(0),
                 np.deg2rad(45),
@@ -356,7 +395,40 @@ class ManipulatorClass:
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):
                 context.mainpulator_state += 1
-        elif context.mainpulator_state == 14:
+        elif context.mainpulator_state == 13:
+            manipulator_control_target = (
+                np.deg2rad(0),
+                np.deg2rad(-55),
+                np.deg2rad(-90),
+                np.deg2rad(-25),
+                np.deg2rad(0),
+            )
+            if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
+        elif 13 < context.mainpulator_state < 23:
+            control_data.gripper = False
+            context.mainpulator_state += 1
+        elif context.mainpulator_state == 23:
+            manipulator_control_target = (
+                np.deg2rad(0),
+                np.deg2rad(45),
+                np.deg2rad(-120),
+                np.deg2rad(-25),
+                np.deg2rad(0),
+            )
+            if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 24:
+            manipulator_control_target = (
+                np.deg2rad(0),
+                np.deg2rad(45),
+                np.deg2rad(-120),
+                np.deg2rad(-60),
+                np.deg2rad(0),
+            )
+            if self._control_joint(manipulator_control_target, read_data, control_data):
+                context.mainpulator_state += 1
+        elif context.mainpulator_state == 25:
             return True
 
 
@@ -621,19 +693,13 @@ def visual_servoing(context: Context, read_data: ReadData):
     pixel_positions = detect_ibvs_features(read_data.img[:, :, ::-1])
     if len(pixel_positions) == len(TARGET):
         pixel_positions = match_ibvs_pixels(pixel_positions, TARGET)
-        if True:
-            _, height, _ = read_data.img.shape
-            colors = [(128, 128, 0), (0, 255, 0), (0, 0, 255), (0, 128, 128)]
-            for i, p in enumerate(pixel_positions):
-                cv2.circle(read_data.img, (int(p[0]), height - int(p[1])), 2, colors[i], -1)
-            for i, p in enumerate(TARGET):
-                cv2.circle(read_data.img, (int(p[0]), height - int(p[1])), 2, colors[i], -1)
 
         pixel_positions = pixel_positions - CENTER
         refer_positions = TARGET - CENTER
 
         _, cl_hat, _ = fk(read_data.joints[4:])
-        Z = cl_hat[2] - 0.05
+        Z = cl_hat[2] - 0.04
+        Z_ref = TARGET_Z - 0.04
 
         lamda = 0.1
         controls = []
@@ -641,13 +707,13 @@ def visual_servoing(context: Context, read_data: ReadData):
             s_pixel = pixel_positions[i]
             s_refer = refer_positions[i]
             L_pixel = ibvs_jacobian(pixel_positions[i], Z, FOCAL_ALPHA)
-            L_refer = ibvs_jacobian(refer_positions[i], Z, FOCAL_ALPHA)
+            L_refer = ibvs_jacobian(refer_positions[i], Z_ref, FOCAL_ALPHA)
             L = np.linalg.pinv(0.5 * (L_pixel + L_refer))
             control = -lamda * (L @ (s_pixel - s_refer))
             controls.append(control)
         control_sum = np.sum(controls, axis=0)
 
-        if abs(control_sum[5]) < 1e-4:
+        if abs(control_sum[5]) < 5e-4:
             return True
         context.manipulator_control_target = (
             read_data.joints[4],
