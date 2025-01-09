@@ -27,6 +27,7 @@ class TestVisualServoing:
 
         self.center_positions = np.array([[127.5, 128.5]])
         self.focal_alpha = 223.0
+        self.refer_z = 0.2
         self.refer_positions = np.array(
             [
                 [10.0, 96.0],
@@ -105,6 +106,7 @@ class TestVisualServoing:
                 self.refer_positions,
                 self.center_positions,
                 self.cam_localization[2],
+                self.refer_z,
                 self.focal_alpha,
             )
         self.visualize(pixel_positions)
@@ -184,7 +186,7 @@ def match_pixels(pixel_positions, refer_positions):
     return min_pixels
 
 
-def visual_servoing(pixel_positions, refer_positions, center_positions, Z, focal_alpha):
+def visual_servoing(pixel_positions, refer_positions, center_positions, Z, Z_ref, focal_alpha):
     pixel_positions = pixel_positions - center_positions
     refer_positions = refer_positions - center_positions
     lamda = 0.0025
@@ -193,7 +195,7 @@ def visual_servoing(pixel_positions, refer_positions, center_positions, Z, focal
         s_pixel = pixel_positions[i]
         s_refer = refer_positions[i]
         L_pixel = ibvs_jacobian(pixel_positions[i], Z, focal_alpha)
-        L_refer = ibvs_jacobian(refer_positions[i], Z, focal_alpha)
+        L_refer = ibvs_jacobian(refer_positions[i], Z_ref, focal_alpha)
         L = np.linalg.pinv(0.5 * (L_pixel + L_refer))
         control = -lamda * (L @ (s_pixel - s_refer))
         controls.append(control)
