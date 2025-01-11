@@ -54,13 +54,6 @@ class TestVisualServoing:
         self.context = Context()
         self.read_data = ReadData()
         self.control_data = ControlData()
-        self.control_data.manipulator_position = (
-            np.deg2rad(0),
-            np.deg2rad(-30),
-            np.deg2rad(-90),
-            np.deg2rad(-60),
-            np.deg2rad(0),
-        )
 
         self.plt_objs = [None] * 4096
 
@@ -258,19 +251,18 @@ def fk(thetas):
 
 
 #
-# ik cam
+# ik cam position
 #
-def ik_cam(thetas, cl):
+def ik_cam_position(thetas, cl):
     _, cl_hat, _ = fk(thetas)
-    p_error = np.linalg.norm(cl[:3] - cl_hat[:3])
-    o_error = np.linalg.norm(cl[3:] - cl_hat[3:])
-    return p_error + o_error * 0.025
+    error = np.linalg.norm(cl[:3] - cl_hat[:3])
+    return error
 
 
 #
-# solve cam
+# solve cam position
 #
-def solve_cam(thetas, cl):
+def solve_cam_position(thetas, cl):
     initial_thetas = np.array([thetas[0], thetas[1], thetas[2], thetas[3], thetas[4]])
     theta_bounds = [
         (np.deg2rad(-180), np.deg2rad(180)),
@@ -281,7 +273,7 @@ def solve_cam(thetas, cl):
     ]
 
     result = minimize(
-        ik_cam,  # 목적 함수
+        ik_cam_position,  # 목적 함수
         initial_thetas,  # 초기값
         args=(cl,),  # 추가 매개변수
         bounds=theta_bounds,  # 범위 제한
@@ -293,8 +285,40 @@ def solve_cam(thetas, cl):
         result.x[1],
         result.x[2],
         result.x[3],
-        result.x[4],
     )
+
+
+#
+# ik cam orientation
+#
+def ik_cam_orientation(thetas, cl):
+    _, cl_hat, _ = fk(thetas)
+    error = np.linalg.norm(cl[5:] - cl_hat[5:])
+    return error
+
+
+#
+# solve cam orientation
+#
+def solve_cam_orientation(thetas, cl):
+    initial_thetas = np.array([thetas[0], thetas[1], thetas[2], thetas[3], thetas[4]])
+    theta_bounds = [
+        (thetas[0], thetas[0]),
+        (thetas[1], thetas[1]),
+        (thetas[2], thetas[2]),
+        (thetas[3], thetas[3]),
+        (np.deg2rad(-90), np.deg2rad(90)),
+    ]
+
+    result = minimize(
+        ik_cam_orientation,  # 목적 함수
+        initial_thetas,  # 초기값
+        args=(cl,),  # 추가 매개변수
+        bounds=theta_bounds,  # 범위 제한
+        method="L-BFGS-B",  # 제약 조건을 지원하는 최적화 알고리즘
+        options={"ftol": 1e-9},  # 수렴 기준
+    )
+    return (result.x[4],)
 
 
 #
@@ -383,14 +407,27 @@ def visual_servoing(context: Context, read_data: ReadData):
         control_sum = np.sum(controls, axis=0)
         # control_sum = np.clip(-0.05, 0.05, control_sum)
 
-        cl_hat[0] += control_sum[1]
-        cl_hat[1] -= control_sum[0]
-        cl_hat[2] -= control_sum[2]
-        cl_hat[3] = -np.pi
-        cl_hat[4] = 0.0
-        cl_hat[5] += control_sum[5] * 500
-        joints = solve_cam(read_data.joints[4:], cl_hat)
-        context.manipulator_control_target = joints
+        cl_position = cl_hat.copy()
+        cl_position[0] += control_sum[1]
+        cl_position[1] -= control_sum[0]
+        cl_position[2] -= control_sum[2]
+        cl_position[3] = -np.pi
+        cl_position[4] = 0.0
+        position = solve_cam_position(read_data.joints[4:], cl_position)
+
+        cl_orientation = cl_hat.copy()
+        cl_orientation[3] = -np.pi
+        cl_orientation[4] = 0.0
+        cl_orientation[5] += control_sum[5] * 100
+        orientation = solve_cam_orientation(read_data.joints[4:], cl_orientation)
+
+        context.manipulator_control_target = (
+            position[0],
+            position[1],
+            position[2],
+            position[3],
+            orientation[0],
+        )
 
 
 if __name__ == "__main__":
