@@ -63,7 +63,7 @@ class TestMapping:
         # car position
         c_x, c_y, _ = read_data.localization[:3]
         _, _, c_z = read_data.localization[3:]
-        # lidar positionq
+        # lidar position
         l_x = c_x + self.config.lidar_offset * np.cos(c_z)
         l_y = c_y + self.config.lidar_offset * np.sin(c_z)
         l_point = np.array([l_x, l_y])
