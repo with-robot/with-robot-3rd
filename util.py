@@ -66,6 +66,7 @@ class Context:
     state_count: int = 0
 
     base: tuple = None
+    curr: tuple = None
     path: list = None
     path_idx: int = None
 

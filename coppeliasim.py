@@ -95,7 +95,7 @@ class Coppeliasim:
             for i, wheel in enumerate(self.control_data.wheels_position):
                 index = i
                 diff = abs(wheel - self.read_data.joints[index])
-                diff = min(diff, np.pi)
+                diff = min(diff, np.pi / 8)
                 if self.read_data.joints[index] < wheel:
                     target = self.read_data.joints[index] + diff
                 else:
@@ -105,7 +105,7 @@ class Coppeliasim:
             for i, joint in enumerate(self.control_data.manipulator_position):
                 index = 4 + i
                 diff = abs(joint - self.read_data.joints[index])
-                diff = min(diff, np.pi / 2)
+                diff = min(diff, np.pi / 8)
                 if self.read_data.joints[index] < joint:
                     target = self.read_data.joints[index] + diff
                 else:

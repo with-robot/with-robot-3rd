@@ -154,6 +154,19 @@ class CarClass:
             angle -= 2 * np.pi
         return angle
 
+    def _calc_farthest_path(self, context: Context, read_data: ReadData, curr: tuple):
+        path_idx = context.path_idx
+        for i in range(context.path_idx, len(context.path)):
+            target = context.path[i]
+            if curr[0] == target[0] or curr[1] == target[1]:
+                path_idx = i
+            elif abs(curr[0] - target[0]) == abs(curr[1] - target[1]):
+                path_idx = i
+            else:
+                break
+
+        return path_idx
+
     def _follow_path(self, context: Context, read_data: ReadData, control_data: ControlData):
         if len(context.path) <= context.path_idx:
             context.path = None
@@ -166,8 +179,11 @@ class CarClass:
             )
             return True
 
-        target = context.path[context.path_idx]
         curr = self.point_to_gird(read_data.localization[:2])
+        # if curr != context.curr:  # 경로 단축을 위해 추가 계산
+        #     context.path_idx = self._calc_farthest_path(context, read_data, curr)
+
+        target = context.path[context.path_idx]
         if target == curr:
             context.path_idx += 1
         else:
@@ -177,7 +193,7 @@ class CarClass:
             target_z = np.arctan2(diff[1], diff[0])
             angle = self._calc_angle_diff(target_z, curr_z)
             distance = np.linalg.norm(diff)
-            if abs(angle) > 0.3:
+            if abs(angle) > 0.1:
                 angle *= 0.5
                 control_data.wheels_position = (
                     read_data.joints[0] + angle,
