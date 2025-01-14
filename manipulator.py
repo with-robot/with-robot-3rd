@@ -329,9 +329,9 @@ class ManipulatorClass:
         elif context.mainpulator_state == 20:  # place target on the cargo
             manipulator_control_target = (
                 np.deg2rad(-180),
-                np.deg2rad(-25),
-                np.deg2rad(-74),
-                np.deg2rad(-81),
+                np.deg2rad(-28),
+                np.deg2rad(-70),
+                np.deg2rad(-82),
                 np.deg2rad(0),
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):
@@ -365,9 +365,9 @@ class ManipulatorClass:
         elif context.mainpulator_state == 1:  # pick target on the cargo
             manipulator_control_target = (
                 np.deg2rad(-180),
-                np.deg2rad(-25),
-                np.deg2rad(-74),
-                np.deg2rad(-81),
+                np.deg2rad(-28),
+                np.deg2rad(-70),
+                np.deg2rad(-82),
                 np.deg2rad(0),
             )
             if self._control_joint(manipulator_control_target, read_data, control_data):

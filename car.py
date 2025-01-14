@@ -180,8 +180,8 @@ class CarClass:
             return True
 
         curr = self.point_to_gird(read_data.localization[:2])
-        # if curr != context.curr:  # 경로 단축을 위해 추가 계산
-        #     context.path_idx = self._calc_farthest_path(context, read_data, curr)
+        if curr != context.curr:  # 경로 단축을 위해 추가 계산
+            context.path_idx = self._calc_farthest_path(context, read_data, curr)
 
         target = context.path[context.path_idx]
         if target == curr:
